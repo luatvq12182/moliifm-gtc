@@ -1,0 +1,15 @@
+services:
+  gtc-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_AZURE_KEY: ${VITE_AZURE_KEY}
+        VITE_AZURE_REGION: ${VITE_AZURE_REGION}
+    container_name: gtc_demo
+    restart: unless-stopped
+    ports:
+      - "8090:80"
+    volumes:
+      - ./public/videos:/usr/share/nginx/html/videos:ro
+      - ./public/images/courses:/usr/share/nginx/html/images/courses:ro
