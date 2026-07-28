@@ -1,83 +1,169 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
+import { loadYoutubeApi } from "../lib/loadYoutubeApi.js";
+import { resolveUploadUrl } from "../lib/mediaUrl.js";
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
 
-// Video hội thoại dùng chung cho cả bước "Xem video" (gate) và cột trái khi đã
-// chuyển sang layout 2 cột. Tự tính câu thoại đang phát dựa trên startTime/endTime
-// của từng dòng trong `dialogue`, báo lên cha qua onActiveLineChange. Cha (hoặc
-// phần Luyện nói) có thể gọi ref.playSegment(start, end) để phát lại đúng 1 câu.
 const LessonVideoPlayer = forwardRef(function LessonVideoPlayer(
-  { videoSrc, dialogue, onEnded, onActiveLineChange, compact = false },
+  {
+    videoType = "upload",
+    videoSrc,
+    youtubeId,
+    dialogue,
+    onEnded,
+    onActiveLineChange,
+  },
   ref,
 ) {
-  const videoRef = useRef(null);
+  const isYoutube = videoType === "youtube";
+
+  const videoElRef = useRef(null);
+  const ytContainerRef = useRef(null);
+  const ytPlayerRef = useRef(null);
+  const ytIntervalRef = useRef(null);
   const segmentEndRef = useRef(null);
+
   const [speed, setSpeed] = useState(1);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [showDetails, setShowDetails] = useState(false);
+  const [ytReady, setYtReady] = useState(false);
+
+  useEffect(() => {
+    if (!isYoutube || !youtubeId) return;
+
+    let destroyed = false;
+    setYtReady(false);
+
+    loadYoutubeApi().then((YT) => {
+      if (destroyed || !ytContainerRef.current) return;
+      ytPlayerRef.current = new YT.Player(ytContainerRef.current, {
+        videoId: youtubeId,
+        playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
+        events: {
+          onReady: () => setYtReady(true),
+          onStateChange: (e) => {
+            if (e.data === YT.PlayerState.ENDED && onEnded) onEnded();
+          },
+        },
+      });
+    });
+
+    return () => {
+      destroyed = true;
+      if (ytIntervalRef.current) clearInterval(ytIntervalRef.current);
+      if (ytPlayerRef.current?.destroy) ytPlayerRef.current.destroy();
+      ytPlayerRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isYoutube, youtubeId]);
+
+  useEffect(() => {
+    if (!isYoutube || !ytReady) return;
+
+    ytIntervalRef.current = setInterval(() => {
+      const player = ytPlayerRef.current;
+      if (!player || typeof player.getCurrentTime !== "function") return;
+      handleTimeUpdate(player.getCurrentTime());
+    }, 250);
+
+    return () => clearInterval(ytIntervalRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isYoutube, ytReady]);
+
+  const handleTimeUpdate = (currentTime) => {
+    if (segmentEndRef.current != null && currentTime >= segmentEndRef.current) {
+      pauseInternal();
+      segmentEndRef.current = null;
+    }
+
+    const idx = dialogue.findIndex(
+      (line) => currentTime >= line.startTime && currentTime < line.endTime,
+    );
+    setActiveIndex((prev) => {
+      if (idx !== prev) {
+        onActiveLineChange && onActiveLineChange(idx);
+        return idx;
+      }
+      return prev;
+    });
+  };
+
+  const pauseInternal = () => {
+    if (isYoutube) ytPlayerRef.current?.pauseVideo();
+    else videoElRef.current?.pause();
+  };
 
   useImperativeHandle(ref, () => ({
     playSegment(start, end) {
-      const v = videoRef.current;
-      if (!v) return;
       segmentEndRef.current = typeof end === "number" ? end : null;
-      v.currentTime = start || 0;
-      v.play();
+
+      if (isYoutube) {
+        const player = ytPlayerRef.current;
+        if (!player) return;
+        player.seekTo(start || 0, true);
+        player.playVideo();
+      } else {
+        const v = videoElRef.current;
+        if (!v) return;
+        const seekAndPlay = () => {
+          v.currentTime = start || 0;
+          v.play();
+        };
+        if (v.readyState >= 1) seekAndPlay();
+        else v.addEventListener("loadedmetadata", seekAndPlay, { once: true });
+      }
     },
   }));
 
   const changeSpeed = (s) => {
     setSpeed(s);
-    if (videoRef.current) videoRef.current.playbackRate = s;
+    if (isYoutube) ytPlayerRef.current?.setPlaybackRate(s);
+    else if (videoElRef.current) videoElRef.current.playbackRate = s;
   };
 
-  const handleTimeUpdate = () => {
-    const v = videoRef.current;
+  const handleVideoTimeUpdate = () => {
+    const v = videoElRef.current;
     if (!v) return;
-
-    if (
-      segmentEndRef.current != null &&
-      v.currentTime >= segmentEndRef.current
-    ) {
-      v.pause();
-      segmentEndRef.current = null;
-    }
-
-    const idx = dialogue.findIndex(
-      (line) => v.currentTime >= line.startTime && v.currentTime < line.endTime,
-    );
-    if (idx !== activeIndex) {
-      setActiveIndex(idx);
-      onActiveLineChange && onActiveLineChange(idx);
-    }
+    handleTimeUpdate(v.currentTime);
   };
 
   const activeLine = activeIndex >= 0 ? dialogue[activeIndex] : null;
 
   return (
     <div>
-      <div className="relative rounded-lg overflow-hidden bg-black mb-3">
+      <div className="relative rounded-lg overflow-hidden bg-black mb-3 aspect-video">
+        {/* Luôn render CẢ HAI thẻ, chỉ ẩn/hiện bằng class "hidden" — không
+            bao giờ để React gỡ bỏ hẳn node <div> chứa YouTube khỏi DOM, vì
+            YouTube IFrame API tự thay thế div đó bằng iframe (React không
+            biết), gỡ node theo kiểu cũ (if/else) làm React bị lệch giữa cây
+            DOM nó nhớ và DOM thật, gây lỗi removeChild khi chuyển qua lại
+            giữa video YouTube và video tự host. */}
+        <div
+          ref={ytContainerRef}
+          className={"w-full h-full " + (isYoutube ? "" : "hidden")}
+        />
         <video
-          ref={videoRef}
-          src={videoSrc}
+          ref={videoElRef}
+          src={isYoutube ? undefined : resolveUploadUrl(videoSrc)}
           controls
           controlsList="nodownload"
-          className={"w-full aspect-video " + (compact ? "" : "")}
-          onTimeUpdate={handleTimeUpdate}
+          playsInline
+          webkit-playsinline="true"
+          className={"w-full h-full " + (isYoutube ? "hidden" : "")}
+          onTimeUpdate={handleVideoTimeUpdate}
           onEnded={onEnded}
         >
           Trình duyệt của bạn không hỗ trợ thẻ video.
         </video>
 
         {activeLine && (
-          <div
-            style={
-              {
-                display: 'none'
-              }
-            }
-            className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-4 pt-8 pb-3 pointer-events-none"
-          >
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-4 pt-8 pb-3 pointer-events-none">
             <p className="text-white text-center font-medium text-base sm:text-lg leading-snug">
               {activeLine.hanzi}
             </p>
@@ -108,13 +194,13 @@ const LessonVideoPlayer = forwardRef(function LessonVideoPlayer(
             </option>
           ))}
         </select>
+        {isYoutube && (
+          <span className="text-[10px] text-gray-400">
+            (YouTube chỉ hỗ trợ tới 2x)
+          </span>
+        )}
 
         <button
-          style={
-            {
-              display: 'none'
-            }
-          }
           onClick={() => setShowDetails((v) => !v)}
           className="ml-auto px-3 py-1 text-xs rounded-md border border-gray-300 hover:bg-gray-50"
         >

@@ -1,0 +1,35 @@
+export const features = [
+    {
+        id: 'nghe-noi-video-ai',
+        name: 'LUYỆN NGHE NÓI QUA VIDEO AI',
+        description: 'Xem video hội thoại, làm bài tập và luyện nói cùng AI chấm điểm phát âm',
+        available: true,
+        route: '/nghe-noi-video-ai',
+        thumbnail: '/images/features/nghe-noi-video-ai.png',
+        // tags: ['Nghe hiểu', 'Luyện nói', 'AI chấm điểm'],
+    },
+    // {
+    //     id: 'format-2',
+    //     name: 'Khóa học tiếng Trung Format 2.0',
+    //     description: 'Đang phát triển',
+    //     available: false,
+    //     thumbnail: '/images/features/format-2.png',
+    //     theme: 'violet',
+    // },
+    // {
+    //     id: 'format-3',
+    //     name: 'Khóa học tiếng Trung Format 3.0',
+    //     description: 'Đang phát triển',
+    //     available: false,
+    //     thumbnail: '/images/features/format-3.png',
+    //     theme: 'blue',
+    // },
+    // {
+    //     id: 'gt-new-hsk',
+    //     name: 'Luyện nghe nói giao tiếp 3.0 GT New HSK',
+    //     description: 'Đang phát triển',
+    //     available: false,
+    //     thumbnail: '/images/features/gt-new-hsk.png',
+    //     theme: 'emerald',
+    // },
+]

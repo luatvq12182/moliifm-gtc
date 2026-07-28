@@ -1,28 +1,37 @@
 import { Link, useParams } from "react-router-dom";
-import { courses, lessons } from "../data/courses.js";
+import {
+  useCoursePublicQuery,
+  useLessonsPublicQuery,
+} from "../hooks/usePublicCatalog.js";
 import ThumbnailImage from "../components/ThumbnailImage.jsx";
+import SiteHeader from "../components/SiteHeader.jsx";
 
 export default function LessonListPage() {
-  const { courseId } = useParams();
-  const course = courses.find((c) => c.id === courseId);
-  const lessonList = lessons[courseId] || [];
+  // Lưu ý: param tên là "courseId" (giữ nguyên từ route cũ) nhưng giá trị thật
+  // sự bây giờ là course SLUG (vd. "hsk1"), không phải ObjectId của MongoDB —
+  // vì API public định danh mọi thứ theo slug lồng nhau, không theo _id.
+  const { curriculumSlug, courseId } = useParams();
+
+  const { data: course, isLoading: loadingCourse } = useCoursePublicQuery(
+    curriculumSlug,
+    courseId,
+  );
+  const {
+    data: lessons = [],
+    isLoading,
+    isError,
+    error,
+  } = useLessonsPublicQuery(curriculumSlug, courseId);
 
   return (
     <div className="min-h-screen">
-      <header className="bg-primary px-4 py-4">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1 text-xs text-gray-800 hover:underline"
-        >
-          <ArrowLeftIcon /> Chọn khóa học khác
-        </Link>
-        <h1 className="text-2xl font-heading font-semibold text-gray-900 mt-1">
-          {course ? course.name : "Khóa học"}
-        </h1>
-      </header>
+      <SiteHeader
+        backTo={`/nghe-noi-video-ai/curriculum/${curriculumSlug}`}
+        backLabel="Chọn khóa học khác"
+        title={course ? course.name : "Khóa học"}
+      />
 
-      <main className="max-w-7xl mx-auto px-4 py-6 flex flex-col lg:grid lg:grid-cols-[400px_1fr] lg:gap-6 lg:items-start">
-        {/* Cột trái: thẻ khóa học */}
+      <main className="max-w-5xl mx-auto px-4 py-6 flex flex-col lg:grid lg:grid-cols-[320px_1fr] lg:gap-6 lg:items-start">
         <div className="lg:sticky lg:top-6 mb-6 lg:mb-0">
           <div className="bg-white rounded-2xl border border-orange-200 overflow-hidden shadow-[0_12px_32px_-8px_rgba(230,168,0,0.35)]">
             <ThumbnailImage
@@ -31,7 +40,7 @@ export default function LessonListPage() {
               className="w-full aspect-square object-cover"
             />
             <div className="p-4">
-              <p className="text-2xl font-heading font-semibold">
+              <p className="text-lg font-heading font-semibold">
                 {course?.name}
               </p>
               <p className="text-sm text-gray-500 mt-1">
@@ -42,24 +51,23 @@ export default function LessonListPage() {
                 <StatItem
                   icon={<BookIcon />}
                   label="Cấp độ"
-                  value={course?.level}
+                  value={course?.level || "—"}
                 />
                 <StatItem
                   icon={<ClockIcon />}
                   label="Số bài học"
-                  value={`${course?.totalLessons} bài`}
+                  value={`${lessons.length} bài`}
                 />
                 <StatItem
                   icon={<BadgeIcon />}
-                  label="Chứng chỉ"
-                  value={course?.certificate}
+                  label="Đạt trình độ"
+                  value={course?.certificate || "—"}
                 />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Cột phải: danh sách bài học */}
         <div>
           <div className="flex items-center gap-2 mb-4">
             <span className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shrink-0">
@@ -68,62 +76,47 @@ export default function LessonListPage() {
             <h2 className="text-lg font-heading font-semibold">Chọn bài học</h2>
           </div>
 
-          <div className="space-y-3">
-            {lessonList.map((lesson, index) => {
-              const number = String(index + 1).padStart(2, "0");
+          {(isLoading || loadingCourse) && (
+            <p className="text-sm text-gray-400">
+              Đang tải danh sách bài học...
+            </p>
+          )}
+          {isError && <p className="text-sm text-red-600">{error.message}</p>}
 
-              return lesson.available ? (
+          {!isLoading && !isError && (
+            <div className="space-y-3">
+              {lessons.map((lesson, index) => (
                 <Link
-                  key={lesson.id}
-                  to={`/course/${courseId}/lesson/${lesson.id}`}
+                  key={lesson._id}
+                  to={`/nghe-noi-video-ai/curriculum/${curriculumSlug}/course/${courseId}/lesson/${lesson.slug}`}
                   className="flex items-center gap-4 bg-white rounded-2xl border border-orange-200 p-4 hover:border-primary transition shadow-[0_6px_20px_-6px_rgba(230,168,0,0.25)]"
                 >
-                  <div className="relative shrink-0">
-                    <div className="w-14 h-14 rounded-xl bg-primary flex items-center justify-center text-white font-heading font-semibold text-lg">
-                      {number}
-                    </div>
-                    <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white border border-gray-200 flex items-center justify-center">
-                      <CheckIcon />
-                    </span>
+                  <div className="w-14 h-14 rounded-xl bg-primary flex items-center justify-center text-white font-heading font-semibold text-lg shrink-0">
+                    {String(lesson.order || index + 1).padStart(2, "0")}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <p className="text-base font-medium">{lesson.title}</p>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      {lesson.description}
-                    </p>
+                    {lesson.description && (
+                      <p className="text-sm text-gray-500 mt-0.5">
+                        {lesson.description}
+                      </p>
+                    )}
                   </div>
 
-                  <span className="shrink-0 inline-flex items-center gap-1 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white text-sm font-medium px-4 py-2 rounded-full shadow-[0_6px_16px_-4px_rgba(234,88,12,0.5)]">
+                  <span className="shrink-0 inline-flex items-center gap-1 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white text-sm font-medium px-4 py-2 rounded-full">
                     Học ngay <ArrowRightIcon />
                   </span>
                 </Link>
-              ) : (
-                <div
-                  key={lesson.id}
-                  className="flex items-center gap-4 bg-white rounded-2xl border border-gray-200 p-4 opacity-70 cursor-not-allowed shadow-[0_4px_14px_-6px_rgba(230,168,0,0.15)]"
-                >
-                  <div className="relative shrink-0">
-                    <div className="w-14 h-14 rounded-xl bg-gray-200 flex items-center justify-center text-gray-400 font-heading font-semibold text-lg">
-                      {number}
-                    </div>
-                    <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white border border-gray-200 flex items-center justify-center">
-                      <LockIcon />
-                    </span>
-                  </div>
+              ))}
 
-                  <div className="flex-1 min-w-0">
-                    <p className="text-base font-medium">{lesson.title}</p>
-                    <p className="text-sm text-gray-400 mt-0.5">Sắp ra mắt</p>
-                  </div>
-
-                  <span className="shrink-0 w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
-                    <LockIcon />
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+              {lessons.length === 0 && (
+                <p className="text-sm text-gray-400">
+                  Khóa học này chưa có bài học nào được xuất bản.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </main>
     </div>
@@ -176,41 +169,6 @@ function ArrowRightIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#16a34a"
-      strokeWidth="3"
-    >
-      <polyline
-        points="20 6 9 17 4 12"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <rect x="4" y="10" width="16" height="10" rx="2" />
-      <path d="M8 10V7a4 4 0 018 0v3" />
     </svg>
   );
 }

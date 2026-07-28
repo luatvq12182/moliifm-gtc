@@ -4,7 +4,8 @@
 
 body {
   @apply text-gray-900;
-  background-image: linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.6)),
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.6)),
     url(/images/Nen-chu-nhat-Molii.png);
   background-size: cover;
   background-position: center;
@@ -13,4 +14,12 @@ body {
 
 video::-webkit-media-controls-overflow-button {
   display: none !important;
+}
+
+.result-lesson {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.25)),
+    url(/images/bg-result.png);
+  background-size: cover;
+  background-position: center;
 }

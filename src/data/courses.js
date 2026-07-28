@@ -6,7 +6,7 @@ export const courses = [
     available: true,
     thumbnail: '/images/courses/HSK1_thumbnail.png',
     level: 'Sơ cấp',
-    totalLessons: 10,
+    totalLessons: 5,
     certificate: 'HSK 1',
   },
   {
@@ -46,18 +46,30 @@ export const lessons = {
     {
       id: 'bai-1',
       title: 'Bài 1',
-      description: 'Làm quen - giới thiệu bản thân',
+      description: 'Tổng hợp nội dung từ Bài 1 đến Bài 5 GTC HSK1',
       available: true,
     },
     {
       id: 'bai-2',
       title: 'Bài 2',
-      description: 'Ngày tháng, sở thích & mua sắm',
+      description: 'Tổng hợp nội dung từ Bài 6 đến Bài 8 GTC HSK1',
       available: true,
     },
     {
       id: 'bai-3',
       title: 'Bài 3',
+      description: 'Sắp ra mắt',
+      available: false,
+    },
+    {
+      id: 'bai-4',
+      title: 'Bài 4',
+      description: 'Sắp ra mắt',
+      available: false,
+    },
+    {
+      id: 'bai-5',
+      title: 'Bài 5',
       description: 'Sắp ra mắt',
       available: false,
     },

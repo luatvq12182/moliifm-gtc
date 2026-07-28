@@ -1,93 +1,102 @@
-import { useState } from 'react'
-import MultipleChoice from './exercises/MultipleChoice.jsx'
-import TrueFalse from './exercises/TrueFalse.jsx'
-import SentenceOrder from './exercises/SentenceOrder.jsx'
-import ShortAnswer from './exercises/ShortAnswer.jsx'
+import { useState } from "react";
+import MultipleChoice from "./exercises/MultipleChoice.jsx";
+import TrueFalse from "./exercises/TrueFalse.jsx";
+import SentenceOrder from "./exercises/SentenceOrder.jsx";
+import ShortAnswer from "./exercises/ShortAnswer.jsx";
+import ExerciseResultCard from "./ExerciseResultCard.jsx";
 
 const TABS = [
-  { key: 'multipleChoice', label: 'Chọn đáp án đúng' },
-  { key: 'trueFalse', label: 'Đúng / Sai' },
-  { key: 'sentenceOrder', label: 'Sắp xếp câu' },
-  { key: 'shortAnswer', label: 'Trả lời câu hỏi' },
-]
+  { key: "multipleChoice", label: "Chọn đáp án đúng" },
+  { key: "trueFalse", label: "Đúng / Sai" },
+  { key: "sentenceOrder", label: "Sắp xếp câu" },
+  { key: "shortAnswer", label: "Trả lời câu hỏi" },
+];
 
 export default function ExerciseSection({ exercises, onComplete }) {
-  const [activeTab, setActiveTab] = useState('multipleChoice')
-  const [results, setResults] = useState({})
+  const [activeTab, setActiveTab] = useState("multipleChoice");
+  const [results, setResults] = useState({});
 
-  const totalQuestions = TABS.reduce((sum, t) => sum + exercises[t.key].length, 0)
-  const totalCorrect = Object.values(results).reduce((sum, r) => sum + r, 0)
-  const allDone = TABS.every((t) => results[t.key] !== undefined)
+  const totalQuestions = TABS.reduce(
+    (sum, t) => sum + exercises[t.key].length,
+    0,
+  );
+  const totalCorrect = Object.values(results).reduce((sum, r) => sum + r, 0);
+  const allDone = TABS.every((t) => results[t.key] !== undefined);
 
   const finishTab = (key, correctCount) => {
-    setResults((r) => ({ ...r, [key]: correctCount }))
-    const nextTab = TABS.find((t) => t.key !== key && results[t.key] === undefined)
-    if (nextTab) setActiveTab(nextTab.key)
-  }
+    setResults((r) => ({ ...r, [key]: correctCount }));
+    const nextTab = TABS.find(
+      (t) => t.key !== key && results[t.key] === undefined,
+    );
+    if (nextTab) setActiveTab(nextTab.key);
+  };
 
   return (
     <div>
       <div className="flex flex-wrap gap-2 mb-4">
         {TABS.map((t) => {
-          const done = results[t.key] !== undefined
+          const done = results[t.key] !== undefined;
           return (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
               className={
-                'px-3 py-1.5 text-xs rounded-md border ' +
+                "px-3 py-1.5 text-xs rounded-md border " +
                 (activeTab === t.key
-                  ? 'bg-primary border-primary-dark font-medium'
+                  ? "bg-primary border-primary-dark font-medium"
                   : done
-                  ? 'border-green-400 bg-green-50 text-green-700'
-                  : 'border-gray-300 hover:bg-gray-50')
+                    ? "border-green-400 bg-green-50 text-green-700"
+                    : "border-gray-300 hover:bg-gray-50")
               }
             >
-              {done ? '✓ ' : ''}
+              {done ? "✓ " : ""}
               {t.label}
             </button>
-          )
+          );
         })}
       </div>
 
-      {activeTab === 'multipleChoice' && (
+      {/* Cả 4 loại bài tập luôn nằm trong DOM, chỉ ẩn/hiện bằng CSS — nhờ vậy
+          mỗi loại tự giữ nguyên tiến trình làm bài (câu đã trả lời, đúng/sai)
+          khi học viên chuyển qua tab khác rồi quay lại. */}
+      <div className={activeTab === "multipleChoice" ? "" : "hidden"}>
         <MultipleChoice
-          key="mc"
           questions={exercises.multipleChoice}
-          onFinish={(c) => finishTab('multipleChoice', c)}
+          onFinish={(c) => finishTab("multipleChoice", c)}
         />
-      )}
-      {activeTab === 'trueFalse' && (
-        <TrueFalse key="tf" questions={exercises.trueFalse} onFinish={(c) => finishTab('trueFalse', c)} />
-      )}
-      {activeTab === 'sentenceOrder' && (
+      </div>
+      <div className={activeTab === "trueFalse" ? "" : "hidden"}>
+        <TrueFalse
+          questions={exercises.trueFalse}
+          onFinish={(c) => finishTab("trueFalse", c)}
+        />
+      </div>
+      <div className={activeTab === "sentenceOrder" ? "" : "hidden"}>
         <SentenceOrder
-          key="so"
           questions={exercises.sentenceOrder}
-          onFinish={(c) => finishTab('sentenceOrder', c)}
+          onFinish={(c) => finishTab("sentenceOrder", c)}
         />
-      )}
-      {activeTab === 'shortAnswer' && (
+      </div>
+      <div className={activeTab === "shortAnswer" ? "" : "hidden"}>
         <ShortAnswer
-          key="sa"
           questions={exercises.shortAnswer}
-          onFinish={(c) => finishTab('shortAnswer', c)}
+          onFinish={(c) => finishTab("shortAnswer", c)}
         />
-      )}
+      </div>
 
       {allDone && (
         <div className="mt-4 pt-4 border-t border-gray-200">
-          <p className="text-sm text-gray-600 mb-3">
-            Kết quả luyện tập: {totalCorrect}/{totalQuestions} câu đúng
-          </p>
+          <ExerciseResultCard correct={totalCorrect} total={totalQuestions} />
           <button
-            onClick={() => onComplete({ correct: totalCorrect, total: totalQuestions })}
+            onClick={() =>
+              onComplete({ correct: totalCorrect, total: totalQuestions })
+            }
             className="w-full py-2.5 rounded-lg font-medium bg-primary hover:bg-primary-dark text-gray-900"
           >
-            Tiếp tục sang luyện nói
+            Tiếp tục
           </button>
         </div>
       )}
     </div>
-  )
+  );
 }
