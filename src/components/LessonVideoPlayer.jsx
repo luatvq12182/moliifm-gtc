@@ -162,7 +162,7 @@ const LessonVideoPlayer = forwardRef(function LessonVideoPlayer(
           Trình duyệt của bạn không hỗ trợ thẻ video.
         </video>
 
-        {activeLine && (
+        {/* {activeLine && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-4 pt-8 pb-3 pointer-events-none">
             <p className="text-white text-center font-medium text-base sm:text-lg leading-snug">
               {activeLine.hanzi}
@@ -178,7 +178,7 @@ const LessonVideoPlayer = forwardRef(function LessonVideoPlayer(
               </>
             )}
           </div>
-        )}
+        )} */}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -200,12 +200,12 @@ const LessonVideoPlayer = forwardRef(function LessonVideoPlayer(
           </span>
         )}
 
-        <button
+        {/* <button
           onClick={() => setShowDetails((v) => !v)}
           className="ml-auto px-3 py-1 text-xs rounded-md border border-gray-300 hover:bg-gray-50"
         >
           {showDetails ? "Ẩn phiên âm & dịch" : "Hiện phiên âm & dịch"}
-        </button>
+        </button> */}
       </div>
     </div>
   );
