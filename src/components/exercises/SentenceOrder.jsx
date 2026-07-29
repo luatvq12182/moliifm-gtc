@@ -12,9 +12,13 @@ export default function SentenceOrder({ questions, onFinish }) {
   const [picked, setPicked] = useState([]);
   const [submitted, setSubmitted] = useState(false);
 
-  const q = questions[current];
-  const answer = answers[current];
-  const checked = answer !== null;
+  const q = questions[current]
+  const answer = answers[current]
+  const checked = answer !== null
+
+  // Lọc bỏ mọi chỉ số không hợp lệ với câu hiện tại (phòng khi picked còn
+  // sót chỉ số của câu trước trong tích tắc trước khi useEffect kịp reset).
+  const safePicked = picked.filter((i) => q.words[i] !== undefined)
   const allAnswered = answers.every((a) => a !== null);
   const correctCount = answers.filter((a) => a && a.isCorrect).length;
 
@@ -88,29 +92,33 @@ export default function SentenceOrder({ questions, onFinish }) {
       </p>
 
       <div className="min-h-[56px] border border-dashed border-gray-300 rounded-lg p-2 mb-3 flex flex-wrap gap-2">
-        {picked.length === 0 && (
+        {safePicked.length === 0 && (
           <span className="text-xs text-gray-400">
             Chạm vào từ bên dưới để thêm
           </span>
         )}
-        {picked.map((i, idx) => (
-          <span
-            key={idx}
-            className="px-3 py-1.5 rounded-md bg-primary/30 text-sm text-center leading-tight"
-          >
-            <span className="block">{q.words[i].hanzi}</span>
-            {q.words[i].pinyin && (
-              <span className="block text-[10px] text-gray-500">
-                {q.words[i].pinyin}
-              </span>
-            )}
-          </span>
-        ))}
+        {safePicked.map((i, idx) => {
+          const w = q.words[i];
+          if (!w) return null;
+          return (
+            <span
+              key={idx}
+              className="px-3 py-1.5 rounded-md bg-primary/30 text-sm text-center leading-tight"
+            >
+              <span className="block">{w.hanzi}</span>
+              {w.pinyin && (
+                <span className="block text-[10px] text-gray-500">
+                  {w.pinyin}
+                </span>
+              )}
+            </span>
+          );
+        })}
       </div>
 
       <div className="flex flex-wrap gap-2 mb-3">
         {q.words.map((w, i) =>
-          picked.includes(i) ? null : (
+          safePicked.includes(i) ? null : (
             <button
               key={i}
               onClick={() => pick(i)}
@@ -132,7 +140,7 @@ export default function SentenceOrder({ questions, onFinish }) {
         <div className="flex gap-2 mb-3">
           <button
             onClick={removeLast}
-            disabled={picked.length === 0}
+            disabled={safePicked.length === 0}
             className="px-3 py-1 text-xs rounded-md border border-gray-300 disabled:opacity-40"
           >
             Xóa từ cuối
@@ -158,7 +166,7 @@ export default function SentenceOrder({ questions, onFinish }) {
       {!checked && (
         <button
           onClick={check}
-          disabled={picked.length !== q.words.length}
+          disabled={safePicked.length !== q.words.length}
           className="w-full py-2 rounded-lg font-medium bg-primary hover:bg-primary-dark text-gray-900 disabled:opacity-40"
         >
           Kiểm tra
