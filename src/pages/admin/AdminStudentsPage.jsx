@@ -53,17 +53,17 @@ export default function AdminStudentsPage() {
     });
   };
 
-  const handleDelete = (student) => {
-    if (
-      !confirm(
-        `Xóa học viên "${student.name}"? Hành động này không thể hoàn tác.`,
-      )
-    )
-      return;
-    deleteStudent.mutate(student._id, {
-      onError: (err) => alert(err.message),
-    });
-  };
+  // const handleDelete = (student) => {
+  //   if (
+  //     !confirm(
+  //       `Xóa học viên "${student.name}"? Hành động này không thể hoàn tác.`,
+  //     )
+  //   )
+  //     return;
+  //   deleteStudent.mutate(student._id, {
+  //     onError: (err) => alert(err.message),
+  //   });
+  // };
 
   const handleResetPassword = (student) => {
     if (
@@ -156,7 +156,7 @@ export default function AdminStudentsPage() {
                 <tr className="text-left text-gray-400 text-xs uppercase border-b border-gray-100">
                   <th className="px-4 py-3 font-medium">Học viên</th>
                   <th className="px-4 py-3 font-medium">Số điện thoại</th>
-                  <th className="px-4 py-3 font-medium">Khóa học</th>
+                  {/* <th className="px-4 py-3 font-medium">Khóa học</th> */}
                   <th className="px-4 py-3 font-medium">Trạng thái</th>
                   <th className="px-4 py-3 font-medium">Ngày tham gia</th>
                   <th className="px-4 py-3 font-medium text-right">
@@ -186,9 +186,9 @@ export default function AdminStudentsPage() {
                     <td className="px-4 py-3 text-gray-600">
                       {s.phone || "—"}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    {/* <td className="px-4 py-3 text-gray-600">
                       {s.course || "—"}
-                    </td>
+                    </td> */}
                     <td className="px-4 py-3">
                       <span
                         className={

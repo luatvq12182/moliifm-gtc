@@ -26,7 +26,6 @@ export default function StudentFormModal({
         name: student.name || "",
         email: student.email || "",
         phone: student.phone || "",
-        course: student.course || "",
       });
     } else {
       setForm(EMPTY_FORM);
@@ -106,20 +105,6 @@ export default function StudentFormModal({
               placeholder="0901 234 567"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
-          </div>
-
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Khóa học</label>
-            <select
-              value={form.course}
-              onChange={handleChange("course")}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">-- Chưa chọn --</option>
-              <option value="HSK1">HSK1</option>
-              <option value="HSK2">HSK2</option>
-              <option value="HSK3">HSK3</option>
-            </select>
           </div>
 
           {(formError || apiError) && (
