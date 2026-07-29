@@ -27,7 +27,7 @@ export default function VocabSection({
                 <span className="text-lg font-medium">{item.hanzi}</span>
                 <span className="text-sm text-gray-500">{item.pinyin}</span>
 
-                {match && (
+                {/* {match && (
                   <button
                     onClick={() =>
                       onRequestPlaySegment?.(
@@ -41,7 +41,7 @@ export default function VocabSection({
                   >
                     <SpeakerIcon />
                   </button>
-                )}
+                )} */}
 
                 <span className="text-xs text-primary-dark bg-primary/20 px-2 py-0.5 rounded ml-auto">
                   {item.pos}
