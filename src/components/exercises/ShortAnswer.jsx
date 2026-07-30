@@ -57,7 +57,9 @@ export default function ShortAnswer({ questions, onFinish }) {
           question: qq.question,
           pinyin: qq.pinyin,
           yourAnswer: a && a.value ? a.value : "(chưa trả lời)",
+          yourPinyin: "", // học viên tự gõ, không có pinyin
           correctAnswer: qq.acceptedAnswers[0],
+          correctPinyin: "", // acceptedAnswers là chuỗi thô, không kèm pinyin
         };
       })
       .filter(Boolean);

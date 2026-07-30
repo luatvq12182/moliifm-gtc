@@ -45,7 +45,9 @@ export default function MultipleChoice({ questions, onFinish }) {
           yourAnswer: a
             ? `${label(a.selectedIndex)}. ${qq.options[a.selectedIndex]?.hanzi}`
             : "(chưa trả lời)",
+          yourPinyin: a ? qq.options[a.selectedIndex]?.pinyin : "",
           correctAnswer: `${label(qq.correctIndex)}. ${qq.options[qq.correctIndex]?.hanzi}`,
+          correctPinyin: qq.options[qq.correctIndex]?.pinyin || "",
         };
       })
       .filter(Boolean);

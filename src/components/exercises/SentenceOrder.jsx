@@ -65,12 +65,30 @@ export default function SentenceOrder({ questions, onFinish }) {
         const built = a
           ? a.picked.map((idx) => qq.words[idx]?.hanzi).join("")
           : "(chưa trả lời)";
+        const yourPinyin = a
+          ? a.picked
+              .map((idx) => qq.words[idx]?.pinyin)
+              .filter(Boolean)
+              .join(" ")
+          : "";
+        // Thứ tự pinyin đúng: dựng lại theo correctSentence bằng cách so từng
+        // từ trong câu đúng với danh sách words (chỉ hiển thị tham khảo).
+        const correctPinyin = qq.words
+          .map((w) => w.pinyin)
+          .filter(Boolean)
+          .join(" ");
         return {
           type: "Sắp xếp câu",
           question: qq.words.map((w) => w.hanzi).join(" / "),
+          questionWords: qq.words.map((w) => ({
+            hanzi: w.hanzi,
+            pinyin: w.pinyin || "",
+          })),
           pinyin: "",
           yourAnswer: built,
+          yourPinyin,
           correctAnswer: qq.correctSentence,
+          correctPinyin,
         };
       })
       .filter(Boolean);

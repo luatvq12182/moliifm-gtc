@@ -126,26 +126,62 @@ function WrongAnswersModal({ items, onClose }) {
         <div className="overflow-y-auto p-4 space-y-3">
           {items.map((item, i) => (
             <div key={i} className="rounded-xl border border-gray-200 p-3">
-              <span className="text-[11px] font-semibold text-orange-400">{item.type}</span>
-              <p className="text-sm font-medium mt-0.5">{item.question}</p>
-              {item.pinyin && (
-                <p className="text-xs text-gray-400 mb-2">{item.pinyin}</p>
+              <span className="text-[11px] text-gray-400">{item.type}</span>
+              {item.questionWords ? (
+                <div className="flex flex-wrap items-end gap-x-1 gap-y-1 mt-0.5 mb-2">
+                  {item.questionWords.map((w, wi) => (
+                    <span key={wi} className="inline-flex items-center gap-1">
+                      <span className="inline-flex flex-col items-center leading-tight">
+                        <span className="text-sm font-medium">{w.hanzi}</span>
+                        {w.pinyin && (
+                          <span className="text-[10px] text-gray-400">
+                            {w.pinyin}
+                          </span>
+                        )}
+                      </span>
+                      {wi < item.questionWords.length - 1 && (
+                        <span className="text-gray-300 text-sm">/</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm font-medium mt-0.5">{item.question}</p>
+                  {item.pinyin && (
+                    <p className="text-xs text-gray-400 mb-2">{item.pinyin}</p>
+                  )}
+                </>
               )}
               <div className="mt-2 space-y-1.5">
                 <div className="flex items-start gap-2">
                   <span className="text-xs text-red-500 shrink-0 w-20">
                     Bạn trả lời:
                   </span>
-                  <span className="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded flex-1">
-                    {item.yourAnswer}
+                  <span className="flex-1 bg-red-50 px-2 py-0.5 rounded">
+                    <span className="text-xs text-red-600 block">
+                      {item.yourAnswer}
+                    </span>
+                    {item.yourPinyin && (
+                      <span className="text-[11px] text-red-400 block">
+                        {item.yourPinyin}
+                      </span>
+                    )}
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-xs text-green-600 shrink-0 w-20">
                     Đáp án đúng:
                   </span>
-                  <span className="text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded flex-1">
-                    {item.correctAnswer}
+                  <span className="flex-1 bg-green-50 px-2 py-0.5 rounded">
+                    <span className="text-xs text-green-700 block">
+                      {item.correctAnswer}
+                    </span>
+                    {item.correctPinyin && (
+                      <span className="text-[11px] text-green-500 block">
+                        {item.correctPinyin}
+                      </span>
+                    )}
                   </span>
                 </div>
               </div>
