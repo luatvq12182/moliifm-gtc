@@ -33,7 +33,20 @@ export default function TrueFalse({ questions, onFinish }) {
 
   const finishSection = () => {
     setSubmitted(true);
-    onFinish(correctCount);
+    const wrong = questions
+      .map((qq, i) => {
+        const a = answers[i];
+        if (a && a.value === qq.correct) return null;
+        return {
+          type: "Đúng / Sai",
+          question: qq.statement,
+          pinyin: qq.pinyin,
+          yourAnswer: a ? (a.value ? "Đúng" : "Sai") : "(chưa trả lời)",
+          correctAnswer: qq.correct ? "Đúng" : "Sai",
+        };
+      })
+      .filter(Boolean);
+    onFinish(correctCount, wrong);
   };
 
   return (

@@ -12,13 +12,13 @@ export default function SentenceOrder({ questions, onFinish }) {
   const [picked, setPicked] = useState([]);
   const [submitted, setSubmitted] = useState(false);
 
-  const q = questions[current]
-  const answer = answers[current]
-  const checked = answer !== null
+  const q = questions[current];
+  const answer = answers[current];
+  const checked = answer !== null;
 
   // Lọc bỏ mọi chỉ số không hợp lệ với câu hiện tại (phòng khi picked còn
   // sót chỉ số của câu trước trong tích tắc trước khi useEffect kịp reset).
-  const safePicked = picked.filter((i) => q.words[i] !== undefined)
+  const safePicked = picked.filter((i) => q.words[i] !== undefined);
   const allAnswered = answers.every((a) => a !== null);
   const correctCount = answers.filter((a) => a && a.isCorrect).length;
 
@@ -58,7 +58,23 @@ export default function SentenceOrder({ questions, onFinish }) {
 
   const finishSection = () => {
     setSubmitted(true);
-    onFinish(correctCount);
+    const wrong = questions
+      .map((qq, i) => {
+        const a = answers[i];
+        if (a && a.isCorrect) return null;
+        const built = a
+          ? a.picked.map((idx) => qq.words[idx]?.hanzi).join("")
+          : "(chưa trả lời)";
+        return {
+          type: "Sắp xếp câu",
+          question: qq.words.map((w) => w.hanzi).join(" / "),
+          pinyin: "",
+          yourAnswer: built,
+          correctAnswer: qq.correctSentence,
+        };
+      })
+      .filter(Boolean);
+    onFinish(correctCount, wrong);
   };
 
   return (

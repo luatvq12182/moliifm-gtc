@@ -33,7 +33,23 @@ export default function MultipleChoice({ questions, onFinish }) {
 
   const finishSection = () => {
     setSubmitted(true);
-    onFinish(correctCount);
+    const label = (index) => String.fromCharCode(65 + index); // 0->A, 1->B, 2->C...
+    const wrong = questions
+      .map((qq, i) => {
+        const a = answers[i];
+        if (a && a.selectedIndex === qq.correctIndex) return null;
+        return {
+          type: "Chọn đáp án đúng",
+          question: qq.question,
+          pinyin: qq.pinyin,
+          yourAnswer: a
+            ? `${label(a.selectedIndex)}. ${qq.options[a.selectedIndex]?.hanzi}`
+            : "(chưa trả lời)",
+          correctAnswer: `${label(qq.correctIndex)}. ${qq.options[qq.correctIndex]?.hanzi}`,
+        };
+      })
+      .filter(Boolean);
+    onFinish(correctCount, wrong);
   };
 
   return (

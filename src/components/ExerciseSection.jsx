@@ -15,6 +15,7 @@ const TABS = [
 export default function ExerciseSection({ exercises, onComplete }) {
   const [activeTab, setActiveTab] = useState("multipleChoice");
   const [results, setResults] = useState({});
+  const [wrongByTab, setWrongByTab] = useState({});
 
   const totalQuestions = TABS.reduce(
     (sum, t) => sum + exercises[t.key].length,
@@ -23,8 +24,9 @@ export default function ExerciseSection({ exercises, onComplete }) {
   const totalCorrect = Object.values(results).reduce((sum, r) => sum + r, 0);
   const allDone = TABS.every((t) => results[t.key] !== undefined);
 
-  const finishTab = (key, correctCount) => {
+  const finishTab = (key, correctCount, wrongList) => {
     setResults((r) => ({ ...r, [key]: correctCount }));
+    setWrongByTab((w) => ({ ...w, [key]: wrongList || [] }));
     const nextTab = TABS.find(
       (t) => t.key !== key && results[t.key] === undefined,
     );
@@ -62,38 +64,42 @@ export default function ExerciseSection({ exercises, onComplete }) {
       <div className={activeTab === "multipleChoice" ? "" : "hidden"}>
         <MultipleChoice
           questions={exercises.multipleChoice}
-          onFinish={(c) => finishTab("multipleChoice", c)}
+          onFinish={(c, w) => finishTab("multipleChoice", c, w)}
         />
       </div>
       <div className={activeTab === "trueFalse" ? "" : "hidden"}>
         <TrueFalse
           questions={exercises.trueFalse}
-          onFinish={(c) => finishTab("trueFalse", c)}
+          onFinish={(c, w) => finishTab("trueFalse", c, w)}
         />
       </div>
       <div className={activeTab === "sentenceOrder" ? "" : "hidden"}>
         <SentenceOrder
           questions={exercises.sentenceOrder}
-          onFinish={(c) => finishTab("sentenceOrder", c)}
+          onFinish={(c, w) => finishTab("sentenceOrder", c, w)}
         />
       </div>
       <div className={activeTab === "shortAnswer" ? "" : "hidden"}>
         <ShortAnswer
           questions={exercises.shortAnswer}
-          onFinish={(c) => finishTab("shortAnswer", c)}
+          onFinish={(c, w) => finishTab("shortAnswer", c, w)}
         />
       </div>
 
       {allDone && (
         <div className="mt-4 pt-4 border-t border-gray-200">
-          <ExerciseResultCard correct={totalCorrect} total={totalQuestions} />
+          <ExerciseResultCard
+            correct={totalCorrect}
+            total={totalQuestions}
+            wrongAnswers={TABS.flatMap((t) => wrongByTab[t.key] || [])}
+          />
           <button
             onClick={() =>
               onComplete({ correct: totalCorrect, total: totalQuestions })
             }
             className="w-full py-2.5 rounded-lg font-medium bg-primary hover:bg-primary-dark text-gray-900"
           >
-            Tiếp tục
+            Tiếp tục sang luyện nói
           </button>
         </div>
       )}

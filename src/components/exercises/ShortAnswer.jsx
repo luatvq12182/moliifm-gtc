@@ -48,7 +48,20 @@ export default function ShortAnswer({ questions, onFinish }) {
 
   const finishSection = () => {
     setSubmitted(true);
-    onFinish(correctCount);
+    const wrong = questions
+      .map((qq, i) => {
+        const a = answers[i];
+        if (a && a.isCorrect) return null;
+        return {
+          type: "Trả lời câu hỏi",
+          question: qq.question,
+          pinyin: qq.pinyin,
+          yourAnswer: a && a.value ? a.value : "(chưa trả lời)",
+          correctAnswer: qq.acceptedAnswers[0],
+        };
+      })
+      .filter(Boolean);
+    onFinish(correctCount, wrong);
   };
 
   return (
