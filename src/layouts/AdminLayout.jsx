@@ -15,7 +15,7 @@ const NAV_ITEMS = [
     icon: <VideoIcon />,
     children: [
       { to: "/admin/gtc/curricula", label: "Giáo trình", available: true },
-      { to: '/admin/gtc/courses', label: 'Khóa học', available: true },
+      { to: "/admin/gtc/courses", label: "Khóa học", available: true },
       { to: "/admin/gtc/lessons", label: "Bài học", available: true },
     ],
   },
@@ -65,16 +65,11 @@ export default function AdminLayout() {
           (sidebarOpen ? "translate-x-0" : "-translate-x-full")
         }
       >
-        <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-9 h-9 rounded-full bg-primary flex items-center justify-center font-heading font-bold text-sm shrink-0">
-              孔
-            </span>
             <div className="min-w-0">
-              <p className="font-heading font-semibold text-sm leading-tight truncate">
-                MOLII EDUCATION
-              </p>
-              <p className="text-[11px] text-gray-400 leading-tight">
+              <img className="h-12" src="/images/logo-moliifm.png" alt="" />
+              <p className="text-[11px] text-gray-400 leading-tight mt-2">
                 Trang quản trị
               </p>
             </div>

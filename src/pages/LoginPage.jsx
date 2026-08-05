@@ -58,13 +58,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm bg-white rounded-2xl border border-orange-200 shadow-[0_12px_32px_-8px_rgba(230,168,0,0.25)] p-6">
         <div className="text-center mb-6">
-          <div className="w-14 h-14 rounded-full bg-primary mx-auto mb-3 flex items-center justify-center text-xl font-heading font-bold">
-            孔
+          <div className="rounded-full mx-auto mb-3 flex items-center justify-center text-xl font-heading font-bold">
+            <img className="h-16" src="/images/logo-moliifm.png" alt="Logo MoliiFM" />
           </div>
-          <h1 className="font-heading font-bold text-lg">MOLII EDUCATION</h1>
-          <p className="text-xs text-gray-500 mt-1">
-            Đăng nhập để tiếp tục học tập
-          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -74,7 +70,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="ban@email.com"
+              placeholder="user@email.com"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
