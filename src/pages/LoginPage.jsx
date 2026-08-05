@@ -32,7 +32,16 @@ export default function LoginPage() {
       navigate("/");
       return;
     } catch (studentErr) {
-      // chưa vội báo lỗi — thử tiếp bằng tài khoản admin
+      // Lỗi 403 = mật khẩu ĐÚNG nhưng thiết bị bị chặn (hoặc tài khoản bị
+      // khóa). Hiện thẳng message từ server, không thử đăng nhập admin nữa.
+      // Chỉ khi lỗi KHÔNG phải 403 (vd. 401 sai mật khẩu) mới thử tài khoản
+      // admin bên dưới.
+      if (studentErr.status === 403) {
+        setError(studentErr.message);
+        setLoading(false);
+        return;
+      }
+      // Các lỗi khác (sai mật khẩu student...) -> thử tiếp tài khoản admin
     }
 
     try {

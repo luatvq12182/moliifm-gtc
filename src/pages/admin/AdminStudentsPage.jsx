@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import {
   useStudentsQuery,
   useToggleStudentStatus,
-  useDeleteStudent,
+  // useDeleteStudent,
   useCreateStudent,
   useResetStudentPassword,
   useUpdateStudent,
+  useResetStudentDevices,
 } from "../../hooks/useStudents.js";
 import StudentFormModal from "../../components/admin/StudentFormModal.jsx";
 import CredentialModal from "../../components/admin/CredentialModal.jsx";
@@ -32,10 +33,11 @@ export default function AdminStudentsPage() {
   const pagination = data?.pagination || { page: 1, totalPages: 1 };
 
   const toggleStatus = useToggleStudentStatus();
-  const deleteStudent = useDeleteStudent();
+  // const deleteStudent = useDeleteStudent();
   const createStudent = useCreateStudent();
   const updateStudent = useUpdateStudent();
   const resetPassword = useResetStudentPassword();
+  const resetDevices = useResetStudentDevices();
 
   // Debounce: chỉ cập nhật debouncedSearch (dùng làm queryKey thật) sau 400ms
   // ngừng gõ, tránh gọi API liên tục mỗi phím bấm.
@@ -51,6 +53,22 @@ export default function AdminStudentsPage() {
     toggleStatus.mutate(student._id, {
       onError: (err) => alert(err.message),
     });
+  };
+
+  const handleResetDevices = (student, target) => {
+    const targetLabel =
+      target === "desktop"
+        ? "máy tính"
+        : target === "mobile"
+          ? "điện thoại"
+          : "cả 2 thiết bị";
+    if (
+      !confirm(
+        `Reset ${targetLabel} của học viên "${student.name}"? Học viên sẽ đăng nhập lại được từ thiết bị mới.`,
+      )
+    )
+      return;
+    resetDevices.mutate({ id: student._id, target });
   };
 
   // const handleDelete = (student) => {
@@ -159,6 +177,7 @@ export default function AdminStudentsPage() {
                   {/* <th className="px-4 py-3 font-medium">Khóa học</th> */}
                   <th className="px-4 py-3 font-medium">Trạng thái</th>
                   <th className="px-4 py-3 font-medium">Ngày tham gia</th>
+                  <th className="px-4 py-3 font-medium">Thiết bị</th>
                   <th className="px-4 py-3 font-medium text-right">
                     Hành động
                   </th>
@@ -204,6 +223,55 @@ export default function AdminStudentsPage() {
                     <td className="px-4 py-3 text-gray-500">
                       {formatJoinedDate(s.createdAt)}
                     </td>
+                    <td className="px-4 py-3">
+                      <div className="text-xs space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-400 w-14 shrink-0">
+                            Máy tính:
+                          </span>
+                          {s.devices?.desktop?.deviceId ? (
+                            <span className="text-green-600">Đã đăng ký</span>
+                          ) : (
+                            <span className="text-gray-400">Trống</span>
+                          )}
+                          {s.devices?.desktop?.deviceId && (
+                            <button
+                              onClick={() => handleResetDevices(s, "desktop")}
+                              className="text-primary-dark hover:underline"
+                            >
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-400 w-14 shrink-0">
+                            ĐT:
+                          </span>
+                          {s.devices?.mobile?.deviceId ? (
+                            <span className="text-green-600">Đã đăng ký</span>
+                          ) : (
+                            <span className="text-gray-400">Trống</span>
+                          )}
+                          {s.devices?.mobile?.deviceId && (
+                            <button
+                              onClick={() => handleResetDevices(s, "mobile")}
+                              className="text-primary-dark hover:underline"
+                            >
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                        {(s.devices?.desktop?.deviceId ||
+                          s.devices?.mobile?.deviceId) && (
+                          <button
+                            onClick={() => handleResetDevices(s, "both")}
+                            className="text-red-500 hover:underline"
+                          >
+                            Reset cả 2
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-right space-x-1 whitespace-nowrap">
                       <button
                         onClick={() => openEditModal(s)}
@@ -232,7 +300,7 @@ export default function AdminStudentsPage() {
                 {students.length === 0 && (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-4 py-8 text-center text-gray-400 text-sm"
                     >
                       Không tìm thấy học viên phù hợp.
@@ -271,11 +339,52 @@ export default function AdminStudentsPage() {
 
                 <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-3">
                   <p>SĐT: {s.phone || "—"}</p>
-                  <p>Khóa học: {s.course || "—"}</p>
-                  <p className="col-span-2">
-                    Tham gia: {formatJoinedDate(s.createdAt)}
+                  <p>Tham gia: {formatJoinedDate(s.createdAt)}</p>
+                  <p>
+                    Máy tính:{" "}
+                    {s.devices?.desktop?.deviceId ? (
+                      <span className="text-green-600">Đã đăng ký</span>
+                    ) : (
+                      <span className="text-gray-400">Trống</span>
+                    )}
+                  </p>
+                  <p>
+                    Điện thoại:{" "}
+                    {s.devices?.mobile?.deviceId ? (
+                      <span className="text-green-600">Đã đăng ký</span>
+                    ) : (
+                      <span className="text-gray-400">Trống</span>
+                    )}
                   </p>
                 </div>
+
+                {(s.devices?.desktop?.deviceId ||
+                  s.devices?.mobile?.deviceId) && (
+                  <div className="flex flex-wrap gap-3 text-xs mb-3">
+                    {s.devices?.desktop?.deviceId && (
+                      <button
+                        onClick={() => handleResetDevices(s, "desktop")}
+                        className="text-primary-dark font-medium"
+                      >
+                        Reset máy tính
+                      </button>
+                    )}
+                    {s.devices?.mobile?.deviceId && (
+                      <button
+                        onClick={() => handleResetDevices(s, "mobile")}
+                        className="text-primary-dark font-medium"
+                      >
+                        Reset điện thoại
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleResetDevices(s, "both")}
+                      className="text-red-500 font-medium"
+                    >
+                      Reset cả 2
+                    </button>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-3 text-xs pt-3 border-t border-gray-50">
                   <button

@@ -48,10 +48,10 @@ export function useToggleStudentStatus() {
 }
 
 export function useResetStudentPassword() {
-  return useMutation({
-    mutationFn: (studentId) => api.patch(`/students/${studentId}/reset-password`),
-    // Không cần invalidateQueries — reset password không đổi dữ liệu hiển thị trong bảng
-  })
+    return useMutation({
+        mutationFn: (studentId) => api.patch(`/students/${studentId}/reset-password`),
+        // Không cần invalidateQueries — reset password không đổi dữ liệu hiển thị trong bảng
+    })
 }
 
 export function useDeleteStudent() {
@@ -61,5 +61,13 @@ export function useDeleteStudent() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['students'] })
         },
+    })
+}
+
+export function useResetStudentDevices() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: ({ id, target }) => api.patch(`/students/${id}/reset-devices`, { target }),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-students'] }),
     })
 }

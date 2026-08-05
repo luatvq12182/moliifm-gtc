@@ -4,9 +4,12 @@ const API_URL = import.meta.env.VITE_API_URL
 // (curricula/courses/lessons giờ đã yêu cầu đăng nhập học viên).
 const ADMIN_SCOPE_PREFIXES = ['/auth/login', '/auth/me', '/students', '/admin']
 
+function isAdminScope(path) {
+    return ADMIN_SCOPE_PREFIXES.some((prefix) => path.startsWith(prefix))
+}
+
 function getToken(path) {
-    const isAdminScope = ADMIN_SCOPE_PREFIXES.some((prefix) => path.startsWith(prefix))
-    return localStorage.getItem(isAdminScope ? 'admin_token' : 'student_token')
+    return localStorage.getItem(isAdminScope(path) ? 'admin_token' : 'student_token')
 }
 
 async function apiFetch(path, options = {}) {
@@ -25,7 +28,25 @@ async function apiFetch(path, options = {}) {
     const data = await res.json().catch(() => null)
 
     if (!res.ok) {
-        throw new Error(data?.message || `Lỗi ${res.status}`)
+        // 401 = token hết hạn / không hợp lệ / bị vô hiệu. Tự đăng xuất + đẩy về
+        // trang login thay vì để người dùng mắc kẹt ở màn hình lỗi. Xóa đúng
+        // loại session (admin hay học viên) tùy request thuộc phạm vi nào.
+        if (res.status === 401) {
+            if (isAdminScope(path)) {
+                localStorage.removeItem('admin_token')
+                localStorage.removeItem('admin_info')
+            } else {
+                localStorage.removeItem('student_token')
+                localStorage.removeItem('student_info')
+            }
+            // Chỉ chuyển hướng nếu đang không ở sẵn trang login (tránh vòng lặp)
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login'
+            }
+        }
+        const err = new Error(data?.message || `Lỗi ${res.status}`)
+        err.status = res.status
+        throw err
     }
 
     return data
@@ -47,7 +68,9 @@ async function apiUpload(path, file, fieldName = 'image') {
     const data = await res.json().catch(() => null)
 
     if (!res.ok) {
-        throw new Error(data?.message || `Lỗi ${res.status}`)
+        const err = new Error(data?.message || `Lỗi ${res.status}`)
+        err.status = res.status
+        throw err
     }
 
     return data
