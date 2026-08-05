@@ -99,7 +99,7 @@ export default function ExerciseSection({ exercises, onComplete }) {
             }
             className="w-full py-2.5 rounded-lg font-medium bg-primary hover:bg-primary-dark text-gray-900"
           >
-            Tiếp tục sang luyện nói
+            Tiếp tục
           </button>
         </div>
       )}
