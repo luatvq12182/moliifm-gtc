@@ -33,7 +33,7 @@ export default function SiteHeader({
           <ThumbnailImage
             src="/images/logo-moliifm.png"
             alt="Molii"
-            className="w-24 object-cover shrink-0"
+            className="w-20 object-cover shrink-0"
           />
         </Link>
 
