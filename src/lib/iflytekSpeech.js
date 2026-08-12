@@ -43,7 +43,7 @@ export function isSpeechSupported() {
 }
 
 // Trả về { result: Promise, stop() }.
-export function assessPronunciation(referenceText) {
+export function assessPronunciation(referenceText, { onListening } = {}) {
     let ws = null
     let audioCtx = null
     let processor = null
@@ -132,6 +132,9 @@ export function assessPronunciation(referenceText) {
             source.connect(processor)
             processor.connect(audioCtx.destination)
             recording = true
+            // Mic ĐÃ thật sự thu — báo UI chuyển sang "Đang lắng nghe" từ lúc này,
+            // tránh cảnh UI báo nghe trước khi mic sẵn sàng làm mất phần đầu câu.
+            if (typeof onListening === 'function') onListening()
         }
 
         ws.onmessage = (evt) => {

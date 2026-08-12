@@ -55,11 +55,13 @@ export default function SpeakingPracticeModal({
   if (!open || !line) return null;
 
   const startRecording = async () => {
-    setPhase("listening");
+    setPhase("connecting"); // đang kết nối + chuẩn bị mic, CHƯA thu
     setErrorMsg("");
     stopMeterRef.current = startMicLevelMeter(setLevel);
 
-    const session = assessPronunciation(line.hanzi);
+    const session = assessPronunciation(line.hanzi, {
+      onListening: () => setPhase("listening"), // mic đã thu thật sự
+    });
     sessionRef.current = session;
 
     try {
@@ -83,7 +85,10 @@ export default function SpeakingPracticeModal({
   // phần đã thu được (thay vì chờ Azure tự phát hiện im lặng, thứ đôi khi
   // không xảy ra và gây đơ).
   const stopRecording = () => {
-    if (sessionRef.current) sessionRef.current.stop();
+    if (sessionRef.current) {
+      setPhase("processing");
+      sessionRef.current.stop();
+    }
   };
 
   const goNext = () => {
@@ -238,7 +243,14 @@ export default function SpeakingPracticeModal({
         </div>
 
         <div className="px-5 py-4 border-t border-gray-100 bg-gray-50 shrink-0">
-          {phase === "listening" ? (
+          {phase === "connecting" ? (
+            <div className="flex items-center justify-center gap-2.5 py-3">
+              <Spinner />
+              <span className="text-sm text-gray-600">
+                Đang chuẩn bị micro… đợi chút rồi hãy đọc nhé
+              </span>
+            </div>
+          ) : phase === "listening" ? (
             <>
               <div className="flex items-center gap-2 mb-3">
                 <span
@@ -262,6 +274,13 @@ export default function SpeakingPracticeModal({
                 </button>
               </div>
             </>
+          ) : phase === "processing" ? (
+            <div className="flex items-center justify-center gap-2.5 py-3">
+              <Spinner />
+              <span className="text-sm text-gray-600">
+                Đang chấm điểm, chờ chút nhé…
+              </span>
+            </div>
           ) : (
             <button
               onClick={startRecording}
@@ -272,23 +291,25 @@ export default function SpeakingPracticeModal({
             </button>
           )}
 
-          {phase !== "listening" && (
-            <div className="flex items-center gap-2 mt-3">
-              <button
-                onClick={goPrev}
-                disabled={currentIndex === 0}
-                className="flex-1 py-2 rounded-xl text-sm border border-gray-200 text-gray-500 disabled:opacity-40"
-              >
-                ← Câu trước
-              </button>
-              <button
-                onClick={goNext}
-                className="flex-1 py-2 rounded-xl text-sm bg-gray-800 text-white"
-              >
-                {currentIndex === total - 1 ? "Hoàn tất" : "Câu tiếp theo →"}
-              </button>
-            </div>
-          )}
+          {phase !== "listening" &&
+            phase !== "processing" &&
+            phase !== "connecting" && (
+              <div className="flex items-center gap-2 mt-3">
+                <button
+                  onClick={goPrev}
+                  disabled={currentIndex === 0}
+                  className="flex-1 py-2 rounded-xl text-sm border border-gray-200 text-gray-500 disabled:opacity-40"
+                >
+                  ← Câu trước
+                </button>
+                <button
+                  onClick={goNext}
+                  className="flex-1 py-2 rounded-xl text-sm bg-gray-800 text-white"
+                >
+                  {currentIndex === total - 1 ? "Hoàn tất" : "Câu tiếp theo →"}
+                </button>
+              </div>
+            )}
 
           <p className="text-center text-[11px] text-gray-400 mt-3">
             Đã luyện: {attemptedCount}/{total} câu
@@ -296,6 +317,22 @@ export default function SpeakingPracticeModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      className="animate-spin text-amber-500"
+    >
+      <path d="M12 2a10 10 0 019.95 9" strokeLinecap="round" />
+    </svg>
   );
 }
 
