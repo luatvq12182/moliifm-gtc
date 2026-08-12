@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { assessPronunciation, buildCharBreakdown } from "../lib/azureSpeech.js";
+import {
+  assessPronunciation,
+  pinyinWithToneMarks,
+} from "../lib/iflytekSpeech.js";
 import { startMicLevelMeter } from "../lib/micLevel.js";
 
-function charColor(score) {
-  if (score >= 80) return "text-green-700 bg-green-50 border-green-200";
-  if (score >= 60) return "text-amber-700 bg-amber-50 border-amber-200";
-  return "text-red-700 bg-red-50 border-red-200";
+function charColor(ok) {
+  return ok
+    ? "text-green-700 bg-green-50 border-green-200"
+    : "text-red-700 bg-red-50 border-red-200";
 }
 
 // Modal luyện nói tập trung cho 1 câu — mở ra khi bấm vào 1 dòng trong
@@ -27,6 +30,7 @@ export default function SpeakingPracticeModal({
   const [showPinyin, setShowPinyin] = useState(false);
   const [level, setLevel] = useState(0);
   const stopMeterRef = useRef(null);
+  const sessionRef = useRef(null);
 
   const line = dialogue[currentIndex];
   const existingResult = results[currentIndex];
@@ -44,6 +48,7 @@ export default function SpeakingPracticeModal({
   useEffect(() => {
     return () => {
       if (stopMeterRef.current) stopMeterRef.current();
+      if (sessionRef.current) sessionRef.current.stop();
     };
   }, []);
 
@@ -54,20 +59,31 @@ export default function SpeakingPracticeModal({
     setErrorMsg("");
     stopMeterRef.current = startMicLevelMeter(setLevel);
 
+    const session = assessPronunciation(line.hanzi);
+    sessionRef.current = session;
+
     try {
-      const result = await assessPronunciation(line.hanzi);
+      const result = await session.result;
       onSaveResult(currentIndex, result);
       setPhase("result");
     } catch (e) {
       setErrorMsg(typeof e === "string" ? e : "Có lỗi xảy ra, thử lại nhé.");
       setPhase("error");
     } finally {
+      sessionRef.current = null;
       if (stopMeterRef.current) {
         stopMeterRef.current();
         stopMeterRef.current = null;
       }
       setLevel(0);
     }
+  };
+
+  // Người dùng chủ động bấm "Dừng" — ép phiên nhận diện kết thúc ngay với
+  // phần đã thu được (thay vì chờ Azure tự phát hiện im lặng, thứ đôi khi
+  // không xảy ra và gây đơ).
+  const stopRecording = () => {
+    if (sessionRef.current) sessionRef.current.stop();
   };
 
   const goNext = () => {
@@ -147,10 +163,15 @@ export default function SpeakingPracticeModal({
               <div className="flex items-center justify-center mb-3">
                 <ScoreRing value={existingResult.pronScore} />
               </div>
-              <div className="flex flex-wrap justify-center gap-2 mb-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
                 <ScoreTag
-                  label="Chính xác"
+                  label="Phát âm"
                   value={existingResult.accuracy}
+                  max={25}
+                />
+                <ScoreTag
+                  label="Thanh điệu"
+                  value={existingResult.prosody}
                   max={25}
                 />
                 <ScoreTag
@@ -159,18 +180,10 @@ export default function SpeakingPracticeModal({
                   max={25}
                 />
                 <ScoreTag
-                  label="Hoàn chỉnh"
+                  label="Đầy đủ"
                   value={existingResult.completeness}
                   max={25}
                 />
-                {existingResult.prosody !== null &&
-                  existingResult.prosody !== undefined && (
-                    <ScoreTag
-                      label="Ngữ điệu"
-                      value={existingResult.prosody}
-                      max={25}
-                    />
-                  )}
               </div>
 
               <div className="mb-3">
@@ -184,31 +197,33 @@ export default function SpeakingPracticeModal({
                 </p>
               </div>
 
-              {existingResult.words?.length > 0 && (
+              {existingResult.chars?.length > 0 && (
                 <div>
                   <p className="text-[11px] text-gray-400 mb-1.5">
-                    Câu cần nói:
+                    Chi tiết từng chữ:
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {buildCharBreakdown(existingResult.words).map((c, i) => (
+                    {existingResult.chars.map((c, i) => (
                       <div
                         key={i}
                         className={
                           "flex flex-col items-center px-2.5 py-1.5 rounded-lg border " +
-                          charColor(c.score)
+                          charColor(c.ok)
                         }
                       >
                         <span className="text-base font-medium leading-tight">
-                          {c.hanzi}
+                          {c.content}
                         </span>
                         {c.pinyin && (
                           <span className="text-[10px] leading-tight">
-                            {c.pinyin}
+                            {pinyinWithToneMarks(c.pinyin)}
                           </span>
                         )}
-                        <span className="text-[10px] font-medium leading-tight mt-0.5">
-                          {c.score}
-                        </span>
+                        {!c.ok && c.issue && (
+                          <span className="text-[9px] font-medium leading-tight mt-0.5 text-red-600">
+                            {c.issue}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -231,10 +246,21 @@ export default function SpeakingPracticeModal({
                   style={{ boxShadow: "0 0 0 4px rgba(226,75,74,0.15)" }}
                 />
                 <span className="text-sm text-gray-600 flex-1">
-                  Đang lắng nghe… tự dừng sau 2s im lặng
+                  Đang lắng nghe… đọc xong bấm "Dừng"
                 </span>
               </div>
-              <Waveform level={level} />
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <Waveform level={level} />
+                </div>
+                <button
+                  onClick={stopRecording}
+                  className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full bg-gray-800 text-white text-sm font-medium hover:bg-gray-900"
+                >
+                  <StopIcon />
+                  Dừng
+                </button>
+              </div>
             </>
           ) : (
             <button
@@ -303,11 +329,31 @@ function ScoreRing({ value }) {
 }
 
 function ScoreTag({ label, value, max }) {
+  // Thang /25: >=20 tốt (xanh), >=15 khá (vàng), còn lại cần cố gắng (đỏ).
+  const tone =
+    value >= 20
+      ? "border-green-300 bg-green-50 text-green-700"
+      : value >= 15
+        ? "border-amber-300 bg-amber-50 text-amber-700"
+        : "border-red-300 bg-red-50 text-red-700";
+
   return (
-    <span className="text-[11px] px-2 py-0.5 rounded bg-white border border-gray-200 text-gray-700">
-      {label}: <span className="font-medium">{value}</span>
-      {max && <span className="text-gray-400">/{max}</span>}
-    </span>
+    <div
+      className={
+        "flex flex-col items-center justify-start rounded-xl border-2 px-1.5 py-2 " +
+        tone
+      }
+    >
+      <span className="text-[11px] text-gray-500 leading-tight whitespace-nowrap">
+        {label}
+      </span>
+      <span className="text-lg font-heading font-bold leading-tight mt-0.5">
+        {value}
+        {max && (
+          <span className="text-xs font-normal text-gray-400">/{max}</span>
+        )}
+      </span>
+    </div>
   );
 }
 
@@ -354,6 +400,14 @@ function MicIcon() {
     >
       <rect x="9" y="2" width="6" height="11" rx="3" />
       <path d="M5 10v1a7 7 0 0014 0v-1M12 18v3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function StopIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <rect x="6" y="6" width="12" height="12" rx="2" />
     </svg>
   );
 }

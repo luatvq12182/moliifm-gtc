@@ -254,20 +254,58 @@ export default function ExercisesEditor({ exercises, onChange }) {
                 placeholder="Pinyin"
                 className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
               />
-              <input
-                type="text"
-                value={item.acceptedAnswers.join(", ")}
-                onChange={(e) =>
-                  update({
-                    acceptedAnswers: e.target.value
-                      .split(",")
-                      .map((w) => w.trim())
-                      .filter(Boolean),
-                  })
+              <p className="text-[11px] text-gray-400">
+                Các đáp án được chấp nhận (học viên trả lời trùng 1 trong các
+                đáp án này là đúng):
+              </p>
+              <div className="space-y-1.5">
+                {item.acceptedAnswers.map((ans, ansIndex) => (
+                  <div key={ansIndex} className="flex items-center gap-2">
+                    <span className="text-[11px] text-gray-400 w-5 shrink-0">
+                      {ansIndex + 1}.
+                    </span>
+                    <input
+                      type="text"
+                      value={ans}
+                      onChange={(e) => {
+                        const acceptedAnswers = item.acceptedAnswers.map(
+                          (a, i) => (i === ansIndex ? e.target.value : a),
+                        );
+                        update({ acceptedAnswers });
+                      }}
+                      placeholder="Một đáp án chấp nhận"
+                      className="flex-1 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        update({
+                          acceptedAnswers: item.acceptedAnswers.filter(
+                            (_, i) => i !== ansIndex,
+                          ),
+                        })
+                      }
+                      className="text-xs text-red-400 hover:underline shrink-0"
+                    >
+                      Xóa
+                    </button>
+                  </div>
+                ))}
+                {item.acceptedAnswers.length === 0 && (
+                  <p className="text-[11px] text-gray-300 italic">
+                    Chưa có đáp án nào — bấm "Thêm đáp án" bên dưới.
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  update({ acceptedAnswers: [...item.acceptedAnswers, ""] })
                 }
-                placeholder="Các đáp án chấp nhận, cách nhau bằng dấu phẩy"
-                className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
-              />
+                className="text-xs text-primary-dark hover:underline"
+              >
+                + Thêm đáp án
+              </button>
             </div>
           )}
         />

@@ -85,8 +85,14 @@ export default function VideoUploadField({ value, onChange }) {
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={busy}
-          className="text-xs border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-50 disabled:opacity-60"
+          className={
+            "text-sm rounded-lg px-4 py-2 font-medium disabled:opacity-60 flex items-center gap-2 " +
+            (value
+              ? "border border-gray-300 hover:bg-gray-50 text-gray-700"
+              : "bg-primary hover:bg-primary-dark text-gray-900")
+          }
         >
+          <UploadIcon />
           {uploadVideo.isPending
             ? "Đang tải lên..."
             : processing
@@ -115,6 +121,26 @@ export default function VideoUploadField({ value, onChange }) {
       {error && <p className="text-[11px] text-red-600 mt-1">{error}</p>}
       {warning && <p className="text-[11px] text-amber-600 mt-1">{warning}</p>}
     </div>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="shrink-0"
+    >
+      <path
+        d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

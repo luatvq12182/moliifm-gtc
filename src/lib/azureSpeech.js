@@ -1,5 +1,10 @@
 import * as SDK from 'microsoft-cognitiveservices-speech-sdk'
 
+// Thời gian tối đa cho toàn bộ 1 lượt nhận diện. Nếu quá mốc này mà Azure
+// chưa trả kết quả (mất mạng, deadlock mic, không phát hiện được im lặng
+// cuối câu...), tự hủy để KHÔNG BAO GIỜ đơ vĩnh viễn ở màn hình lắng nghe.
+const OVERALL_TIMEOUT_MS = 15000
+
 function createSpeechConfig(azureKey, azureRegion) {
   const speechConfig = SDK.SpeechConfig.fromSubscription(azureKey, azureRegion)
   speechConfig.speechRecognitionLanguage = 'zh-CN'
@@ -12,40 +17,86 @@ function createSpeechConfig(azureKey, azureRegion) {
   return speechConfig
 }
 
-// Nhận diện tự do (KHÔNG có câu mẫu) — chạy song song với lượt chấm điểm
-// phát âm, để biết chính xác học viên đã nói ra CÂU GÌ, kể cả khi nói khác
-// hẳn câu mẫu. Không reject khi lỗi — trả về null để không làm hỏng cả
-// lượt chấm điểm chính nếu lượt phụ này gặp trục trặc.
-function recognizeFreeSpeech(azureKey, azureRegion) {
-  return new Promise((resolve) => {
+// Đóng recognizer an toàn (không ném lỗi nếu đã đóng rồi).
+function safeClose(recognizer) {
+  if (!recognizer) return
+  try {
+    recognizer.close()
+  } catch (e) {
+    /* đã đóng rồi hoặc lỗi khi đóng — bỏ qua */
+  }
+}
+
+// Nhận diện tự do (KHÔNG có câu mẫu) — chạy song song với lượt chấm điểm để
+// biết học viên đã nói ra CÂU GÌ. Không reject khi lỗi — trả về '' để không
+// làm hỏng lượt chấm điểm chính. Trả về cả recognizer để lượt chính có thể
+// ép dừng khi người dùng bấm "Dừng" hoặc khi hết timeout.
+function startFreeSpeech(azureKey, azureRegion) {
+  let recognizer = null
+  const promise = new Promise((resolve) => {
     let audioConfig
     try {
       audioConfig = SDK.AudioConfig.fromDefaultMicrophoneInput()
     } catch (e) {
-      resolve(null)
+      resolve('')
       return
     }
     const speechConfig = createSpeechConfig(azureKey, azureRegion)
-    const recognizer = new SDK.SpeechRecognizer(speechConfig, audioConfig)
+    recognizer = new SDK.SpeechRecognizer(speechConfig, audioConfig)
+
+    let settled = false
+    const done = (value) => {
+      if (settled) return
+      settled = true
+      resolve(value)
+      safeClose(recognizer)
+    }
 
     recognizer.recognizeOnceAsync(
-      (result) => {
-        resolve(result.reason === SDK.ResultReason.RecognizedSpeech ? result.text : '')
-        recognizer.close()
-      },
-      () => {
-        resolve(null)
-        recognizer.close()
-      }
+      (result) => done(result.reason === SDK.ResultReason.RecognizedSpeech ? result.text : ''),
+      () => done('')
     )
   })
+
+  return {
+    promise,
+    stop: () => {
+      // Ép phiên tự do dừng ngay (nếu còn đang chạy).
+      if (recognizer) {
+        try {
+          recognizer.stopContinuousRecognitionAsync(
+            () => safeClose(recognizer),
+            () => safeClose(recognizer)
+          )
+        } catch (e) {
+          safeClose(recognizer)
+        }
+      }
+    },
+  }
 }
 
+// Trả về { result, stop }:
+//   result -> Promise, resolve kết quả chấm điểm / reject kèm thông báo lỗi
+//   stop() -> ép dừng ngay lập tức (dùng cho nút "Dừng" hoặc timeout tổng)
 export function assessPronunciation(referenceText) {
-  return new Promise((resolve, reject) => {
-    const AZURE_KEY = import.meta.env.VITE_AZURE_KEY
-    const AZURE_REGION = import.meta.env.VITE_AZURE_REGION
+  const AZURE_KEY = import.meta.env.VITE_AZURE_KEY
+  const AZURE_REGION = import.meta.env.VITE_AZURE_REGION
 
+  let recognizer = null
+  let freeSpeech = null
+  let timeoutId = null
+  let settled = false
+  let stopRequested = false
+
+  const cleanup = () => {
+    if (timeoutId) clearTimeout(timeoutId)
+    timeoutId = null
+    safeClose(recognizer)
+    if (freeSpeech) freeSpeech.stop()
+  }
+
+  const result = new Promise((resolve, reject) => {
     if (!AZURE_KEY || !AZURE_REGION) {
       reject('Chưa cấu hình VITE_AZURE_KEY / VITE_AZURE_REGION trong file .env')
       return
@@ -69,54 +120,71 @@ export function assessPronunciation(referenceText) {
     )
     try {
       paConfig.enableProsodyAssessment = true
-
-      console.log('Ok con de');
     } catch (e) {
       console.warn('[assess] Không bật được enableProsodyAssessment:', e)
     }
 
-    const recognizer = new SDK.SpeechRecognizer(speechConfig, audioConfig)
+    recognizer = new SDK.SpeechRecognizer(speechConfig, audioConfig)
     paConfig.applyTo(recognizer)
 
-    // Bắt đầu lượt nhận diện tự do CÙNG LÚC với lượt chấm điểm — cả 2 cùng
-    // nghe 1 lượt học viên nói, không cần nói lại lần 2.
-    const freeSpeechPromise = recognizeFreeSpeech(AZURE_KEY, AZURE_REGION)
+    // Lượt nhận diện tự do chạy song song.
+    freeSpeech = startFreeSpeech(AZURE_KEY, AZURE_REGION)
+
+    // ---- Lớp bảo vệ: timeout tổng ----
+    timeoutId = setTimeout(() => {
+      if (settled) return
+      settled = true
+      cleanup()
+      reject('Quá thời gian chờ xử lý. Vui lòng kiểm tra kết nối mạng và thử lại nhé.')
+    }, OVERALL_TIMEOUT_MS)
+
+    const finish = (fn, payload) => {
+      if (settled) return
+      settled = true
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = null
+      fn(payload)
+      // đóng nốt tài nguyên (freeSpeech đã tự đóng khi promise của nó xong)
+      safeClose(recognizer)
+    }
 
     recognizer.recognizeOnceAsync(
-      async (result) => {
-        const spokenText = await freeSpeechPromise
+      async (res) => {
+        // Chờ lượt tự do, nhưng KHÔNG để nó làm treo lượt chính: nếu quá 3s
+        // chưa có thì bỏ qua, hiện "Nội dung bạn nói" rỗng.
+        let spokenText = ''
+        try {
+          spokenText = await Promise.race([
+            freeSpeech.promise,
+            new Promise((r) => setTimeout(() => r(''), 3000)),
+          ])
+        } catch (e) {
+          spokenText = ''
+        }
 
-        if (result.reason === SDK.ResultReason.RecognizedSpeech) {
-          const pa = SDK.PronunciationAssessmentResult.fromResult(result)
+        // Nếu người dùng đã bấm Dừng giữa chừng và Azure vẫn trả về sau đó,
+        // vẫn xử lý bình thường với dữ liệu thu được (không bỏ phí).
 
-          // Azure ở chế độ chấm điểm phát âm vẫn trả "thành công"
-          // (RecognizedSpeech) ngay cả khi học viên hoàn toàn im lặng hoặc
-          // chỉ có tiếng động không phải giọng nói — lúc đó điểm và văn bản
-          // nhận diện đều rỗng/0. Tự phát hiện trường hợp này để báo lỗi
-          // đúng, thay vì hiện kết quả 0 điểm gây hiểu lầm là "đã chấm xong,
-          // bạn phát âm sai hết".
-          const cleanedText = (result.text || '').replace(/[，。！？、.,\s]/g, '')
+        if (res.reason === SDK.ResultReason.RecognizedSpeech) {
+          const pa = SDK.PronunciationAssessmentResult.fromResult(res)
+
+          const cleanedText = (res.text || '').replace(/[，。！？、.,\s]/g, '')
           const isSilent = Math.round(pa.pronunciationScore) === 0 && cleanedText === ''
 
           if (isSilent) {
-            reject('Không nghe thấy bạn nói gì cả. Bấm mic rồi đọc to, rõ ràng nhé.')
-            recognizer.close()
+            finish(reject, 'Không nghe thấy bạn nói gì cả. Bấm mic rồi đọc to, rõ ràng nhé.')
             return
           }
 
           let words = []
           try {
-            const jsonStr = result.properties.getProperty(SDK.PropertyId.SpeechServiceResponse_JsonResult)
+            const jsonStr = res.properties.getProperty(SDK.PropertyId.SpeechServiceResponse_JsonResult)
             const json = JSON.parse(jsonStr)
             words = json?.NBest?.[0]?.Words || []
           } catch (e) {
             console.warn('[assess] Không đọc được chi tiết theo từng từ:', e)
           }
 
-          // Không dùng thang 100 gốc của Azure cho từng tiêu chí — quy đổi
-          // ngay mỗi tiêu chí về thang tối đa 25 điểm, để 4 con số hiển thị
-          // ra UI cộng lại đúng bằng điểm tổng (không dùng pa.pronunciationScore
-          // của Azure, tự cộng 4 tiêu chí đã quy đổi lại với nhau).
           const accuracyValue = Math.round(pa.accuracyScore / 4)
           const fluencyValue = Math.round(pa.fluencyScore / 4)
           const completenessValue = Math.round(pa.completenessScore / 4)
@@ -125,41 +193,61 @@ export function assessPronunciation(referenceText) {
 
           const customTotal = accuracyValue + fluencyValue + completenessValue + prosodyValue
 
-          resolve({
+          finish(resolve, {
             accuracy: accuracyValue,
             fluency: fluencyValue,
             completeness: completenessValue,
             prosody: prosodyAvailable ? prosodyValue : null,
             pronScore: customTotal,
             words,
-            recognizedText: result.text,
+            recognizedText: res.text,
             spokenText: spokenText || '',
           })
-        } else if (result.reason === SDK.ResultReason.NoMatch) {
-          const nm = SDK.NoMatchDetails.fromResult(result)
+        } else if (res.reason === SDK.ResultReason.NoMatch) {
+          const nm = SDK.NoMatchDetails.fromResult(res)
           const isSilence = nm.reason === SDK.NoMatchReason.InitialSilenceTimeout
-          reject(
-            isSilence
-              ? 'Không nghe thấy bạn nói gì cả. Bấm mic rồi đọc ngay, đừng chờ lâu nhé.'
-              : 'Nghe được tiếng nhưng chưa rõ. Hãy nói to hơn, gần mic hơn và kiểm tra tiếng ồn xung quanh.'
+          finish(
+            reject,
+            stopRequested
+              ? 'Chưa nghe rõ câu nói. Bấm nói lại và đọc to, rõ ràng nhé.'
+              : isSilence
+                ? 'Không nghe thấy bạn nói gì cả. Bấm mic rồi đọc ngay, đừng chờ lâu nhé.'
+                : 'Nghe được tiếng nhưng chưa rõ. Hãy nói to hơn, gần mic hơn và kiểm tra tiếng ồn xung quanh.'
           )
         } else {
-          reject('Không nhận diện được giọng nói, thử lại nhé.')
+          finish(reject, 'Không nhận diện được giọng nói, thử lại nhé.')
         }
-        recognizer.close()
       },
       (err) => {
-        reject('Lỗi khi ghi âm: ' + err)
-        recognizer.close()
+        finish(reject, 'Lỗi khi ghi âm: ' + err)
       }
     )
   })
+
+  return {
+    result,
+    stop: () => {
+      // Người dùng bấm "Dừng": ép Azure kết thúc nhận diện với dữ liệu đã
+      // thu được. recognizer sẽ gọi callback recognizeOnceAsync như bình
+      // thường (thường ra kết quả nếu đã nói đủ, hoặc NoMatch nếu quá ít).
+      stopRequested = true
+      if (recognizer) {
+        try {
+          recognizer.stopContinuousRecognitionAsync(
+            () => { },
+            () => { }
+          )
+        } catch (e) {
+          /* bỏ qua */
+        }
+      }
+      if (freeSpeech) freeSpeech.stop()
+    },
+  }
 }
 
-// ---- Phần dưới đây trước đó bị rớt mất khi thay toàn bộ file — thêm lại ----
+// ---- Các hàm hiển thị pinyin / breakdown (giữ nguyên) ----
 
-// Chuyển pinyin kèm số thanh điệu (Azure trả về dạng "nin 2") thành pinyin
-// có dấu thanh chuẩn (dạng "nín") để hiển thị đẹp hơn cho học viên.
 const TONE_MARKS = {
   a: ['a', 'ā', 'á', 'ǎ', 'à'],
   e: ['e', 'ē', 'é', 'ě', 'è'],
@@ -177,7 +265,7 @@ export function formatPinyinTone(raw) {
   let [, letters, toneStr] = match
   letters = letters.toLowerCase().replace(/v/g, 'ü')
   const tone = toneStr ? Number(toneStr) : 0
-  if (!tone || tone === 5) return letters // thanh nhẹ hoặc không rõ — để nguyên, không thêm dấu
+  if (!tone || tone === 5) return letters
 
   let vowelIndex = -1
   if (letters.includes('a')) vowelIndex = letters.indexOf('a')
@@ -198,9 +286,6 @@ export function formatPinyinTone(raw) {
   return letters.slice(0, vowelIndex) + marked + letters.slice(vowelIndex + 1)
 }
 
-// Tách kết quả chấm điểm từ cấp "cả cụm từ" xuống cấp "từng chữ Hán riêng
-// lẻ" — dùng Syllables (chữ + điểm) ghép với Phonemes (pinyin + thanh điệu)
-// theo đúng vị trí tương ứng trong cùng 1 từ.
 export function buildCharBreakdown(words) {
   const chars = []
     ; (words || []).forEach((w) => {
@@ -217,10 +302,6 @@ export function buildCharBreakdown(words) {
           })
         })
       } else {
-        // Từ này không có dữ liệu âm tiết chi tiết — thường do bị bỏ qua hoàn
-        // toàn (ErrorType "Omission", học viên không nói tới chữ này). Vẫn
-        // hiện đủ từng chữ của câu mẫu ra UI, chỉ là điểm 0 vì không có gì để
-        // chấm (không có Syllables nên cũng không có pinyin chi tiết).
         const fallbackScore = w.PronunciationAssessment?.AccuracyScore ?? 0
         Array.from(w.Word || '').forEach((ch) => {
           chars.push({ hanzi: ch, pinyin: '', score: fallbackScore })

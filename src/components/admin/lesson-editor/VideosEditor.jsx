@@ -36,31 +36,34 @@ export default function VideosEditor({ videos, onChange }) {
             className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
           />
 
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => update({ type: "upload" })}
-              className={
-                "flex-1 px-3 py-1.5 text-xs rounded-md border " +
-                (video.type === "upload"
-                  ? "bg-primary border-primary-dark font-medium"
-                  : "border-gray-300 hover:bg-gray-50")
-              }
-            >
-              Tải video lên
-            </button>
-            <button
-              type="button"
-              onClick={() => update({ type: "youtube" })}
-              className={
-                "flex-1 px-3 py-1.5 text-xs rounded-md border " +
-                (video.type === "youtube"
-                  ? "bg-primary border-primary-dark font-medium"
-                  : "border-gray-300 hover:bg-gray-50")
-              }
-            >
-              Link YouTube
-            </button>
+          <div>
+            <p className="text-[12px] font-semibold text-gray-700 mb-1.5">Nguồn video:</p>
+            <div className="inline-flex p-0.5 bg-gray-100 rounded-lg">
+              <button
+                type="button"
+                onClick={() => update({ type: "upload" })}
+                className={
+                  "px-4 py-1.5 text-xs rounded-md transition " +
+                  (video.type === "upload"
+                    ? "bg-white shadow-sm font-medium text-gray-900"
+                    : "text-gray-500 hover:text-gray-700")
+                }
+              >
+                Tải video lên từ máy
+              </button>
+              <button
+                type="button"
+                onClick={() => update({ type: "youtube" })}
+                className={
+                  "px-4 py-1.5 text-xs rounded-md transition " +
+                  (video.type === "youtube"
+                    ? "bg-white shadow-sm font-medium text-gray-900"
+                    : "text-gray-500 hover:text-gray-700")
+                }
+              >
+                Link YouTube
+              </button>
+            </div>
           </div>
 
           {video.type === "youtube" ? (

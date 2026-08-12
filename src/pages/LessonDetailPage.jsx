@@ -168,8 +168,8 @@ export default function LessonDetailPage() {
           >
             <VocabSection
               vocabulary={lesson.vocabulary}
-              videos={videos}
-              onRequestPlaySegment={requestPlaySegment}
+              // videos={videos}
+              // onRequestPlaySegment={requestPlaySegment}
               onComplete={() => completeStep(2)}
             />
           </AccordionSection>

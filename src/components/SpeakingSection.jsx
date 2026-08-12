@@ -100,7 +100,12 @@ export default function SpeakingSection({
                         {line.pinyin}
                       </p>
                     )}
-                    <p className="text-sm font-medium">{line.hanzi}</p>
+                    <p className="text-sm font-medium">
+                      {line.speaker && (
+                        <span className="text-gray-400 font-normal mr-1.5">{line.speaker}:</span>
+                      )}
+                      {line.hanzi}
+                    </p>
                     {showVi && (
                       <p className="text-xs text-gray-400 mt-0.5">{line.vi}</p>
                     )}
