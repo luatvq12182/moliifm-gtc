@@ -1,5 +1,38 @@
 import { useState } from "react";
+import { pinyin } from "pinyin-pro";
 import ConfettiDecorations from "./Confetti.jsx";
+
+// --- Pinyin tự sinh (Cách A) -------------------------------------------------
+// DB chưa lưu phiên âm cho đáp án của type "Trả lời câu hỏi", nên ta tự sinh
+// phiên âm ngay tại client bằng pinyin-pro. Chỉ điền khi field pinyin gốc còn
+// trống — không đè lên phiên âm đã có sẵn trong dữ liệu.
+//
+// nonZh: 'consecutive' -> giữ nguyên phần không phải chữ Hán (số, chữ Latin)
+// thành 1 khối, tránh bị tách rời từng ký tự. Ví dụ "35岁" -> "35 suì".
+
+const hasHanzi = (text) => /[\u4e00-\u9fff]/.test(text || "");
+
+// Cache kết quả để không tính lại mỗi lần re-render (đáp án là chuỗi cố định).
+const pinyinCache = new Map();
+
+function toPinyin(text) {
+  if (!text || !hasHanzi(text)) return "";
+  if (pinyinCache.has(text)) return pinyinCache.get(text);
+  let result = "";
+  try {
+    result = pinyin(text, { nonZh: "consecutive" });
+  } catch (e) {
+    result = ""; // lỗi thì bỏ qua, không làm vỡ UI
+  }
+  pinyinCache.set(text, result);
+  return result;
+}
+
+// Trả về pinyin đã-có nếu DB cung cấp, ngược lại tự sinh từ chữ Hán.
+function resolvePinyin(existing, hanziText) {
+  if (existing) return existing;
+  return toPinyin(hanziText);
+}
 
 export default function ExerciseResultCard({
   correct,
@@ -124,69 +157,92 @@ function WrongAnswersModal({ items, onClose }) {
         </div>
 
         <div className="overflow-y-auto p-4 space-y-3">
-          {items.map((item, i) => (
-            <div key={i} className="rounded-xl border border-gray-200 p-3">
-              <span className="text-[11px] text-gray-400">{item.type}</span>
-              {item.questionWords ? (
-                <div className="flex flex-wrap items-end gap-x-1 gap-y-1 mt-0.5 mb-2">
-                  {item.questionWords.map((w, wi) => (
-                    <span key={wi} className="inline-flex items-center gap-1">
-                      <span className="inline-flex flex-col items-center leading-tight">
-                        <span className="text-sm font-medium">{w.hanzi}</span>
-                        {w.pinyin && (
-                          <span className="text-[10px] text-gray-400">
-                            {w.pinyin}
+          {items.map((item, i) => {
+            // Tự sinh phiên âm cho các phần còn thiếu (ưu tiên pinyin từ DB).
+            const questionPinyin = resolvePinyin(item.pinyin, item.question);
+            const yourPinyin = resolvePinyin(item.yourPinyin, item.yourAnswer);
+            const correctPinyin = resolvePinyin(
+              item.correctPinyin,
+              item.correctAnswer,
+            );
+
+            return (
+              <div key={i} className="rounded-xl border border-gray-200 p-3">
+                <span className="text-[11px] text-gray-400">{item.type}</span>
+                {item.questionWords ? (
+                  <div className="flex flex-wrap items-end gap-x-1 gap-y-1 mt-0.5 mb-2">
+                    {item.questionWords.map((w, wi) => {
+                      // questionWords: mỗi ô là 1 chữ/từ, tự sinh nếu thiếu pinyin.
+                      const wPinyin = resolvePinyin(w.pinyin, w.hanzi);
+                      return (
+                        <span
+                          key={wi}
+                          className="inline-flex items-center gap-1"
+                        >
+                          <span className="inline-flex flex-col items-center leading-tight">
+                            <span className="text-sm font-medium">
+                              {w.hanzi}
+                            </span>
+                            {wPinyin && (
+                              <span className="text-[10px] text-gray-400">
+                                {wPinyin}
+                              </span>
+                            )}
                           </span>
-                        )}
+                          {wi < item.questionWords.length - 1 && (
+                            <span className="text-gray-300 text-sm">/</span>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium mt-0.5">
+                      {item.question}
+                    </p>
+                    {questionPinyin && (
+                      <p className="text-xs text-gray-400 mb-2">
+                        {questionPinyin}
+                      </p>
+                    )}
+                  </>
+                )}
+                <div className="mt-2 space-y-1.5">
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-red-500 shrink-0 w-20">
+                      Bạn trả lời:
+                    </span>
+                    <span className="flex-1 bg-red-50 px-2 py-0.5 rounded">
+                      <span className="text-xs text-red-600 block">
+                        {item.yourAnswer}
                       </span>
-                      {wi < item.questionWords.length - 1 && (
-                        <span className="text-gray-300 text-sm">/</span>
+                      {yourPinyin && (
+                        <span className="text-[11px] text-red-400 block">
+                          {yourPinyin}
+                        </span>
                       )}
                     </span>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm font-medium mt-0.5">{item.question}</p>
-                  {item.pinyin && (
-                    <p className="text-xs text-gray-400 mb-2">{item.pinyin}</p>
-                  )}
-                </>
-              )}
-              <div className="mt-2 space-y-1.5">
-                <div className="flex items-start gap-2">
-                  <span className="text-xs text-red-500 shrink-0 w-20">
-                    Bạn trả lời:
-                  </span>
-                  <span className="flex-1 bg-red-50 px-2 py-0.5 rounded">
-                    <span className="text-xs text-red-600 block">
-                      {item.yourAnswer}
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-green-600 shrink-0 w-20">
+                      Đáp án đúng:
                     </span>
-                    {item.yourPinyin && (
-                      <span className="text-[11px] text-red-400 block">
-                        {item.yourPinyin}
+                    <span className="flex-1 bg-green-50 px-2 py-0.5 rounded">
+                      <span className="text-xs text-green-700 block">
+                        {item.correctAnswer}
                       </span>
-                    )}
-                  </span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-xs text-green-600 shrink-0 w-20">
-                    Đáp án đúng:
-                  </span>
-                  <span className="flex-1 bg-green-50 px-2 py-0.5 rounded">
-                    <span className="text-xs text-green-700 block">
-                      {item.correctAnswer}
+                      {correctPinyin && (
+                        <span className="text-[11px] text-green-500 block">
+                          {correctPinyin}
+                        </span>
+                      )}
                     </span>
-                    {item.correctPinyin && (
-                      <span className="text-[11px] text-green-500 block">
-                        {item.correctPinyin}
-                      </span>
-                    )}
-                  </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

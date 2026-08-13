@@ -42,6 +42,44 @@ export function isSpeechSupported() {
     return typeof window !== 'undefined' && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
 }
 
+// Diễn giải except_info của iFLYTEK thành lý do bị từ chối, dễ hiểu cho học
+// viên. Trả về { reason, message }:
+//  - reason: mã ngắn để UI phân biệt ('mispronounced' | 'too_quiet' | ...)
+//  - message: câu tiếng Việt hiển thị.
+// Xem tài liệu iFLYTEK: except_info=28673 (0x7001) không có tiếng/quá nhỏ,
+// 28676 (0x7004) đọc bừa/sai nội dung, 28680 (0x7008) nhiễu nhiều,
+// 28690 (0x7012) âm bị cắt/quá to, 28689 (0x7011) không có audio.
+function interpretRejection(exceptInfo) {
+    const code = parseInt(exceptInfo, 10)
+    switch (code) {
+        case 28673: // 0x7001 - không có tiếng hoặc quá nhỏ
+        case 28689: // 0x7011 - không có audio đầu vào
+            return {
+                reason: 'too_quiet',
+                message: 'Chưa nghe rõ tiếng. Hãy đọc to hơn và lại gần micro nhé.',
+            }
+        case 28680: // 0x7008 - tỉ lệ nhiễu cao
+            return {
+                reason: 'noisy',
+                message: 'Xung quanh hơi ồn nên nghe chưa rõ. Thử lại ở nơi yên tĩnh hơn nhé.',
+            }
+        case 28690: // 0x7012 - âm bị cắt/quá to
+            return {
+                reason: 'clipped',
+                message: 'Âm thanh bị vỡ do đọc quá to hoặc quá gần mic. Đọc nhẹ hơn một chút nhé.',
+            }
+        case 28676: // 0x7004 - đọc bừa / sai nội dung
+        default:
+            // Mặc định (kể cả khi không có except_info): coi là đọc chưa khớp
+            // câu mẫu — đây là trường hợp phổ biến nhất khi bị từ chối.
+            return {
+                reason: 'mispronounced',
+                message:
+                    'Bài đọc chưa khớp với câu mẫu nên chưa thể chấm điểm. Hãy nghe lại câu mẫu và đọc đúng từng chữ nhé.',
+            }
+    }
+}
+
 // Trả về { result: Promise, stop() }.
 export function assessPronunciation(referenceText, { onListening } = {}) {
     let ws = null
@@ -147,9 +185,26 @@ export function assessPronunciation(referenceText, { onListening } = {}) {
             if (msg.type === 'result') {
                 const s = msg.summary || {}
 
-                // Bài bị iFLYTEK từ chối (không nghe rõ / im lặng / đọc sai hoàn toàn).
+                // Bài bị iFLYTEK từ chối (đọc bừa / im lặng / nhiễu / quá nhỏ).
+                // CÁCH B: KHÔNG reject cứng nữa. Vẫn resolve về kết quả có cờ
+                // "rejected" + lý do + "Nội dung bạn nói" (IAT), để học viên tự
+                // thấy mình đã đọc ra gì và biết đường sửa — văn minh hơn.
                 if (s.is_rejected) {
-                    finish(reject, 'Nghe được tiếng nhưng chưa rõ. Hãy đọc to hơn, gần mic hơn và đúng câu mẫu nhé.')
+                    const { reason, message } = interpretRejection(s.except_info)
+                    finish(resolve, {
+                        rejected: true,
+                        rejectReason: reason,
+                        rejectMessage: message,
+                        spokenText: msg.spokenText || '',
+                        // Không có điểm hợp lệ khi bị từ chối.
+                        pronScore: null,
+                        accuracy: null,
+                        prosody: null,
+                        fluency: null,
+                        completeness: null,
+                        chars: [],
+                        raw: s,
+                    })
                     return
                 }
 
@@ -163,6 +218,7 @@ export function assessPronunciation(referenceText, { onListening } = {}) {
                 const pronScore = phone + tone + fluency + integrity // tổng /100
 
                 finish(resolve, {
+                    rejected: false,
                     // 4 tiêu chí quy về /25 (đặt tên khớp thứ tự UI cũ)
                     accuracy: phone, // "Phát âm (âm)" ~ phone_score
                     prosody: tone, // "Thanh điệu" ~ tone_score

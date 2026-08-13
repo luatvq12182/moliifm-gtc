@@ -8,19 +8,25 @@ export default function VocabSection({ vocabulary, onComplete }) {
 
   const hasHanzi = (text) => /[\u4e00-\u9fff]/.test(text || "");
 
+  // Phòng khi vocabulary chưa về / không phải mảng (tránh .map trên undefined).
+  const items = Array.isArray(vocabulary) ? vocabulary : [];
+
   return (
     <div>
       <div className="space-y-3 mb-4">
-        {vocabulary.map((item, i) => {
-          const isGrammar = item.pos === "Cấu trúc ngữ pháp";
+        {items.map((item, i) => {
+          const isGrammar = item?.pos === "Cấu trúc ngữ pháp";
+          // Một số từ có thể thiếu example (seed sót / field rỗng) — dùng
+          // object rỗng làm fallback để không bao giờ chạm .hanzi trên undefined.
+          const example = item?.example || {};
 
           return (
             <div key={i} className="border border-gray-200 rounded-lg p-3">
               <div className="flex items-baseline gap-2 mb-1">
-                <span className="text-lg font-medium">{item.hanzi}</span>
-                <span className="text-sm text-gray-500">{item.pinyin}</span>
+                <span className="text-lg font-medium">{item?.hanzi}</span>
+                <span className="text-sm text-gray-500">{item?.pinyin}</span>
 
-                {canSpeak && !isGrammar && (
+                {canSpeak && !isGrammar && hasHanzi(item?.hanzi) && (
                   <button
                     onClick={() => speakChinese(item.hanzi)}
                     title="Nghe cách đọc từ này"
@@ -32,7 +38,7 @@ export default function VocabSection({ vocabulary, onComplete }) {
 
                 {/* Xem cách viết — chỉ hiện khi từ có chữ Hán và không phải
                     cụm cấu trúc ngữ pháp (cụm lai Latin không viết được). */}
-                {!isGrammar && hasHanzi(item.hanzi) && (
+                {!isGrammar && hasHanzi(item?.hanzi) && (
                   <button
                     onClick={() => setStrokeChar(item.hanzi)}
                     title="Xem cách viết chữ này"
@@ -42,34 +48,41 @@ export default function VocabSection({ vocabulary, onComplete }) {
                   </button>
                 )}
 
-                <span className="text-xs text-primary-dark bg-primary/20 px-2 py-0.5 rounded ml-auto">
-                  {item.pos}
-                </span>
+                {item?.pos && (
+                  <span className="text-xs text-primary-dark bg-primary/20 px-2 py-0.5 rounded ml-auto">
+                    {item.pos}
+                  </span>
+                )}
               </div>
 
-              <p className="text-sm text-gray-700 mb-2">{item.meaning}</p>
+              <p className="text-sm text-gray-700 mb-2">{item?.meaning}</p>
 
-              <div className="bg-gray-50 rounded-lg p-2.5">
-                <p className="text-xs text-gray-500 mb-1">Ví dụ:</p>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm">{item.example.hanzi}</p>
-                  {canSpeak && item.example?.hanzi && (
-                    <button
-                      onClick={() => speakChinese(item.example.hanzi)}
-                      title="Nghe cách đọc câu ví dụ"
-                      className="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 shrink-0 text-gray-500"
-                    >
-                      <SpeakerIcon small />
-                    </button>
+              {/* Chỉ render khối ví dụ khi thực sự có dữ liệu ví dụ. */}
+              {(example.hanzi || example.pinyin || example.vi) && (
+                <div className="bg-gray-50 rounded-lg p-2.5">
+                  <p className="text-xs text-gray-500 mb-1">Ví dụ:</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm">{example.hanzi}</p>
+                    {canSpeak && example.hanzi && (
+                      <button
+                        onClick={() => speakChinese(example.hanzi)}
+                        title="Nghe cách đọc câu ví dụ"
+                        className="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 shrink-0 text-gray-500"
+                      >
+                        <SpeakerIcon small />
+                      </button>
+                    )}
+                  </div>
+                  {example.pinyin && (
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {example.pinyin}
+                    </p>
+                  )}
+                  {example.vi && (
+                    <p className="text-xs text-gray-500 mt-0.5">{example.vi}</p>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {item.example.pinyin}
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {item.example.vi}
-                </p>
-              </div>
+              )}
             </div>
           );
         })}

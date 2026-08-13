@@ -5,10 +5,31 @@ import {
 } from "../lib/iflytekSpeech.js";
 import { startMicLevelMeter } from "../lib/micLevel.js";
 
-function charColor(ok) {
-  return ok
-    ? "text-green-700 bg-green-50 border-green-200"
-    : "text-red-700 bg-red-50 border-red-200";
+// Phân loại lỗi để tô màu ô chữ. Ba nhóm:
+//  - ok  -> xanh (đọc đúng)
+//  - lỗi phát âm (sai thanh điệu / sai vần / sai phụ âm đầu / đọc sai)
+//    -> đỏ, vì đây là sai cách phát âm, học viên cần đọc lại cho đúng.
+//  - lỗi nhịp đọc (đọc thừa / đọc thiếu / đọc lặp)
+//    -> cam, vì chữ đọc không sai âm, chỉ là thừa/thiếu/lặp khi đọc.
+const RHYTHM_ISSUES = ["đọc thừa", "đọc thiếu", "đọc lặp"];
+
+function charStyle(c) {
+  if (c.ok) {
+    return {
+      box: "text-green-700 bg-green-50 border-green-200",
+      label: "text-green-600",
+    };
+  }
+  if (RHYTHM_ISSUES.includes(c.issue)) {
+    return {
+      box: "text-amber-700 bg-amber-50 border-amber-200",
+      label: "text-amber-600",
+    };
+  }
+  return {
+    box: "text-red-700 bg-red-50 border-red-200",
+    label: "text-red-600",
+  };
 }
 
 // Modal luyện nói tập trung cho 1 câu — mở ra khi bấm vào 1 dòng trong
@@ -67,6 +88,8 @@ export default function SpeakingPracticeModal({
     try {
       const result = await session.result;
       onSaveResult(currentIndex, result);
+      // Kể cả khi bị từ chối (đọc chưa khớp), vẫn vào phase "result" để hiển
+      // thị thông báo văn minh + "Nội dung bạn nói", thay vì màn hình lỗi đỏ.
       setPhase("result");
     } catch (e) {
       setErrorMsg(typeof e === "string" ? e : "Có lỗi xảy ra, thử lại nhé.");
@@ -163,7 +186,41 @@ export default function SpeakingPracticeModal({
             </button>
           </div>
 
-          {phase === "result" && existingResult && (
+          {phase === "result" && existingResult && existingResult.rejected && (
+            <div className="mt-5 text-left bg-amber-50 border border-amber-200 rounded-2xl p-4">
+              <div className="flex items-start gap-2.5 mb-3">
+                <span className="w-7 h-7 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <WarnIcon />
+                </span>
+                <p className="text-sm text-amber-800 leading-snug">
+                  {existingResult.rejectMessage ||
+                    "Bài đọc chưa khớp với câu mẫu nên chưa thể chấm điểm."}
+                </p>
+              </div>
+
+              {/* Cho học viên tự đối chiếu: câu mẫu vs nội dung họ vừa đọc. */}
+              <div className="space-y-2">
+                <div>
+                  <p className="text-[11px] text-gray-400 mb-0.5">Câu mẫu:</p>
+                  <p className="text-sm text-gray-700 bg-white rounded-lg border border-gray-200 px-3 py-2">
+                    {line.hanzi}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-gray-400 mb-0.5">
+                    Nội dung bạn vừa đọc:
+                  </p>
+                  <p className="text-sm text-gray-700 bg-white rounded-lg border border-gray-200 px-3 py-2">
+                    {existingResult.spokenText
+                      ? existingResult.spokenText
+                      : "— không nghe rõ tiếng nói —"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {phase === "result" && existingResult && !existingResult.rejected && (
             <div className="mt-5 text-left bg-gray-50 rounded-2xl p-4">
               <div className="flex items-center justify-center mb-3">
                 <ScoreRing value={existingResult.pronScore} />
@@ -208,29 +265,43 @@ export default function SpeakingPracticeModal({
                     Chi tiết từng chữ:
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {existingResult.chars.map((c, i) => (
-                      <div
-                        key={i}
-                        className={
-                          "flex flex-col items-center px-2.5 py-1.5 rounded-lg border " +
-                          charColor(c.ok)
-                        }
-                      >
-                        <span className="text-base font-medium leading-tight">
-                          {c.content}
-                        </span>
-                        {c.pinyin && (
-                          <span className="text-[10px] leading-tight">
-                            {pinyinWithToneMarks(c.pinyin)}
+                    {existingResult.chars.map((c, i) => {
+                      const style = charStyle(c);
+                      return (
+                        <div
+                          key={i}
+                          className={
+                            "flex flex-col items-center px-2.5 py-1.5 rounded-lg border " +
+                            style.box
+                          }
+                        >
+                          <span className="text-base font-medium leading-tight">
+                            {c.content}
                           </span>
-                        )}
-                        {!c.ok && c.issue && (
-                          <span className="text-[9px] font-medium leading-tight mt-0.5 text-red-600">
-                            {c.issue}
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                          {c.pinyin && (
+                            <span className="text-[10px] leading-tight">
+                              {pinyinWithToneMarks(c.pinyin)}
+                            </span>
+                          )}
+                          {!c.ok && c.issue && (
+                            <span
+                              className={
+                                "text-[9px] font-medium leading-tight mt-0.5 " +
+                                style.label
+                              }
+                            >
+                              {c.issue}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Chú thích màu để học viên hiểu ý nghĩa. */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
+                    <LegendDot className="bg-green-400" text="Đọc đúng" />
+                    <LegendDot className="bg-red-400" text="Sai phát âm" />
+                    <LegendDot className="bg-amber-400" text="Thừa/thiếu chữ" />
                   </div>
                 </div>
               )}
@@ -320,6 +391,15 @@ export default function SpeakingPracticeModal({
   );
 }
 
+function LegendDot({ className, text }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span className={"w-2 h-2 rounded-full " + className} />
+      <span className="text-[9px] text-gray-400">{text}</span>
+    </span>
+  );
+}
+
 function Spinner() {
   return (
     <svg
@@ -391,6 +471,26 @@ function ScoreTag({ label, value, max }) {
         )}
       </span>
     </div>
+  );
+}
+
+function WarnIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path
+        d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M12 9v4M12 17h.01" strokeLinecap="round" />
+    </svg>
   );
 }
 
