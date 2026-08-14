@@ -38,7 +38,7 @@ export default function VocabSection({ vocabulary, onComplete }) {
 
                 {/* Xem cách viết — chỉ hiện khi từ có chữ Hán và không phải
                     cụm cấu trúc ngữ pháp (cụm lai Latin không viết được). */}
-                {!isGrammar && hasHanzi(item?.hanzi) && (
+                {hasHanzi(item?.hanzi) && (
                   <button
                     onClick={() => setStrokeChar(item.hanzi)}
                     title="Xem cách viết chữ này"
