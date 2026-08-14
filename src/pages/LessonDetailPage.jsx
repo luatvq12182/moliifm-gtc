@@ -98,7 +98,7 @@ export default function LessonDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <SiteHeader
         backTo={backToLessonsLink}
         backLabel="Danh sách bài học"
