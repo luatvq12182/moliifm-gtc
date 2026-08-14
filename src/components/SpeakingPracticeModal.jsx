@@ -7,7 +7,7 @@ import { startMicLevelMeter } from "../lib/micLevel.js";
 
 // Phân loại lỗi để tô màu ô chữ. Ba nhóm:
 //  - ok  -> xanh (đọc đúng)
-//  - lỗi phát âm (sai thanh điệu / sai vần / sai phụ âm đầu / đọc sai)
+//  - lỗi phát âm (sai thanh điệu / sai vận mẫu / sai thanh mẫu / đọc sai)
 //    -> đỏ, vì đây là sai cách phát âm, học viên cần đọc lại cho đúng.
 //  - lỗi nhịp đọc (đọc thừa / đọc thiếu / đọc lặp)
 //    -> cam, vì chữ đọc không sai âm, chỉ là thừa/thiếu/lặp khi đọc.
