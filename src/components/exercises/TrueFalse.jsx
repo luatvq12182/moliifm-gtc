@@ -43,6 +43,10 @@ export default function TrueFalse({ questions, onFinish }) {
           pinyin: qq.pinyin,
           yourAnswer: a ? (a.value ? "Đúng" : "Sai") : "(chưa trả lời)",
           correctAnswer: qq.correct ? "Đúng" : "Sai",
+          // Câu sửa (nếu có) — chỉ ý nghĩa khi nhận định là Sai. Đính kèm để
+          // màn "Các câu làm sai" hiển thị cho học viên.
+          correction: qq.correction || "",
+          correctionPinyin: qq.correctionPinyin || "",
         };
       })
       .filter(Boolean);
@@ -102,6 +106,20 @@ export default function TrueFalse({ questions, onFinish }) {
           );
         })}
       </div>
+
+      {/* Sau khi trả lời, nếu nhận định là Sai và có câu sửa thì hiện luôn
+          để học viên học được ngay tại câu, không phải đợi tới màn tổng kết. */}
+      {answer !== null && q.correct === false && q.correction && (
+        <div className="rounded-lg bg-green-50 border border-green-200 p-2.5 mb-3">
+          <p className="text-[11px] text-green-600 mb-0.5">Sửa:</p>
+          <p className="text-sm text-green-800">{q.correction}</p>
+          {q.correctionPinyin && (
+            <p className="text-xs text-green-600 mt-0.5">
+              {q.correctionPinyin}
+            </p>
+          )}
+        </div>
+      )}
 
       {answer !== null && !allAnswered && (
         <button

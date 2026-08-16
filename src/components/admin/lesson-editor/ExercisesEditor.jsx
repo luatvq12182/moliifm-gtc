@@ -37,7 +37,13 @@ const NEW_MC = () => ({
   ],
   correctIndex: 0,
 });
-const NEW_TF = () => ({ statement: "", pinyin: "", correct: true });
+const NEW_TF = () => ({
+  statement: "",
+  pinyin: "",
+  correct: true,
+  correction: "",
+  correctionPinyin: "",
+});
 const NEW_SO = () => ({ words: [], correctSentence: "" });
 const NEW_SA = () => ({ question: "", pinyin: "", acceptedAnswers: [] });
 
@@ -197,6 +203,33 @@ export default function ExercisesEditor({ exercises, onChange }) {
                   Sai
                 </label>
               </div>
+
+              {/* Câu sửa — chỉ nhập khi đáp án là "Sai". Khách soạn sẵn phần
+                  sửa (chữ Hán + phiên âm) trong một số câu của file Word. */}
+              {item.correct === false && (
+                <div className="rounded-lg border border-gray-200 p-2 space-y-2 bg-gray-50">
+                  <p className="text-[11px] text-gray-400">
+                    Câu sửa cho đúng (tùy chọn — hiện cho học viên khi xem lại
+                    câu sai):
+                  </p>
+                  <input
+                    type="text"
+                    value={item.correction || ""}
+                    onChange={(e) => update({ correction: e.target.value })}
+                    placeholder="Câu sửa (chữ Hán)"
+                    className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
+                  />
+                  <input
+                    type="text"
+                    value={item.correctionPinyin || ""}
+                    onChange={(e) =>
+                      update({ correctionPinyin: e.target.value })
+                    }
+                    placeholder="Phiên âm câu sửa"
+                    className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
+                  />
+                </div>
+              )}
             </div>
           )}
         />

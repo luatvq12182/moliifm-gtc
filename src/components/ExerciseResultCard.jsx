@@ -239,6 +239,27 @@ function WrongAnswersModal({ items, onClose }) {
                       )}
                     </span>
                   </div>
+
+                  {/* Câu sửa cho câu Đúng/Sai (nếu khách có soạn). */}
+                  {item.correction && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-gray-500 shrink-0 w-20">
+                        Sửa:
+                      </span>
+                      <span className="flex-1 bg-gray-50 px-2 py-0.5 rounded">
+                        <span className="text-xs text-gray-700 block">
+                          {item.correction}
+                        </span>
+                        {(item.correctionPinyin ||
+                          resolvePinyin("", item.correction)) && (
+                          <span className="text-[11px] text-gray-400 block">
+                            {item.correctionPinyin ||
+                              resolvePinyin("", item.correction)}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             );

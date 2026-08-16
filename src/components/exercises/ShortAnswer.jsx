@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { pinyin } from "pinyin-pro";
 
 function normalize(s) {
   return s
@@ -6,6 +7,24 @@ function normalize(s) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[，。！？、\s]/g, "")
     .toLowerCase();
+}
+
+// Sinh phiên âm cho đáp án tham khảo (nếu có chữ Hán). Đáp án vốn đã là pinyin
+// thì không có chữ Hán -> trả rỗng, không hiển thị dòng thừa. Có cache để không
+// tính lại mỗi lần render.
+const hasHanzi = (text) => /[\u4e00-\u9fff]/.test(text || "");
+const pinyinCache = new Map();
+function toPinyin(text) {
+  if (!text || !hasHanzi(text)) return "";
+  if (pinyinCache.has(text)) return pinyinCache.get(text);
+  let result = "";
+  try {
+    result = pinyin(text, { nonZh: "consecutive" });
+  } catch (e) {
+    result = "";
+  }
+  pinyinCache.set(text, result);
+  return result;
 }
 
 export default function ShortAnswer({ questions, onFinish }) {
@@ -52,19 +71,24 @@ export default function ShortAnswer({ questions, onFinish }) {
       .map((qq, i) => {
         const a = answers[i];
         if (a && a.isCorrect) return null;
+        const correctAnswer = qq.acceptedAnswers[0];
         return {
           type: "Trả lời câu hỏi",
           question: qq.question,
           pinyin: qq.pinyin,
           yourAnswer: a && a.value ? a.value : "(chưa trả lời)",
           yourPinyin: "", // học viên tự gõ, không có pinyin
-          correctAnswer: qq.acceptedAnswers[0],
-          correctPinyin: "", // acceptedAnswers là chuỗi thô, không kèm pinyin
+          correctAnswer,
+          correctPinyin: toPinyin(correctAnswer), // tự sinh phiên âm cho đáp án
         };
       })
       .filter(Boolean);
     onFinish(correctCount, wrong);
   };
+
+  // Phiên âm đáp án tham khảo của câu hiện tại (nếu là chữ Hán).
+  const refAnswer = q.acceptedAnswers[0];
+  const refPinyin = toPinyin(refAnswer);
 
   return (
     <div>
@@ -116,9 +140,18 @@ export default function ShortAnswer({ questions, onFinish }) {
               : "bg-red-50 text-red-700")
           }
         >
-          {answer.isCorrect
-            ? "Chính xác!"
-            : `Đáp án tham khảo: ${q.acceptedAnswers[0]}`}
+          {answer.isCorrect ? (
+            "Chính xác!"
+          ) : (
+            <>
+              <span>Đáp án tham khảo: {refAnswer}</span>
+              {refPinyin && (
+                <span className="text-xs text-red-400 mt-0.5">
+                  ({refPinyin})
+                </span>
+              )}
+            </>
+          )}
         </div>
       )}
 
