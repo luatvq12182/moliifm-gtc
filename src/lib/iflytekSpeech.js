@@ -7,7 +7,33 @@
 // { result: Promise, stop() } để SpeakingPracticeModal không phải đổi nhiều.
 
 const TARGET_RATE = 16000
-const OVERALL_TIMEOUT_MS = 20000 // iFLYTEK cần gửi audio + chờ chấm, để rộng hơn Azure
+
+// Timeout tổng cho một phiên chấm — KHÔNG cố định, mà tính theo độ dài câu.
+// Lý do: người đọc là HỌC VIÊN mới học, đọc chậm hơn người bản xứ nhiều (có
+// ngập ngừng, đọc lại). Câu càng dài càng cần nhiều thời gian: vừa để đọc,
+// vừa để backend stream audio lên iFLYTEK + iFLYTEK chấm + trả kết quả. Timeout
+// 20s cố định trước đây làm câu trên ~20 chữ gần như luôn bị "quá thời gian".
+//
+//   BASE_OVERHEAD: phần cố định (mở WS + handshake + gửi audio + iFLYTEK chấm + mạng)
+//   READ_MS_PER_CHAR: thời gian đọc ước tính cho mỗi chữ Hán (học viên đọc chậm)
+//   MIN/MAX: sàn và trần để không quá ngắn, cũng không treo vô hạn.
+const BASE_OVERHEAD_MS = 15000
+const READ_MS_PER_CHAR = 900
+const MIN_TIMEOUT_MS = 25000
+const MAX_TIMEOUT_MS = 90000
+
+// Đếm số chữ Hán trong câu (mỗi chữ Hán = 1 âm tiết cần đọc).
+function countHanzi(text) {
+    const matches = (text || '').match(/[\u4e00-\u9fff]/g)
+    return matches ? matches.length : 0
+}
+
+// Tính timeout hợp lý cho câu mẫu học viên sắp đọc.
+function computeTimeout(referenceText) {
+    const chars = countHanzi(referenceText)
+    const raw = BASE_OVERHEAD_MS + chars * READ_MS_PER_CHAR
+    return Math.max(MIN_TIMEOUT_MS, Math.min(MAX_TIMEOUT_MS, raw))
+}
 
 // URL WebSocket tới backend. Suy ra từ VITE_API_URL (vd https://.../api ->
 // wss://.../ws/pronunciation). Cho phép override bằng VITE_PRON_WS_URL.
@@ -133,9 +159,11 @@ export function assessPronunciation(referenceText, { onListening } = {}) {
         }
 
         // Lớp bảo vệ: timeout tổng — không bao giờ đơ vĩnh viễn.
+        // Tính theo độ dài câu (câu dài được nhiều thời gian hơn).
+        const timeoutMs = computeTimeout(referenceText)
         timeoutId = setTimeout(() => {
-            finish(reject, 'Quá thời gian chờ xử lý. Vui lòng kiểm tra kết nối mạng và thử lại nhé.')
-        }, OVERALL_TIMEOUT_MS)
+            finish(reject, 'Quá thời gian chờ xử lý. Câu hơi dài, bạn thử đọc lại và nói liền mạch hơn một chút nhé.')
+        }, timeoutMs)
 
         const wsUrl = resolveWsUrl()
         try {
