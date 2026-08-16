@@ -144,10 +144,11 @@ export default function ShortAnswer({ questions, onFinish }) {
             "Chính xác!"
           ) : (
             <>
-              <span>Đáp án tham khảo: {refAnswer}</span>
+              <span className="block mb-2">Chưa đúng - đáp án tham khảo:</span>
+              <span className="block">{refAnswer}</span>
               {refPinyin && (
                 <span className="text-xs text-red-400 mt-0.5">
-                  ({refPinyin})
+                  {refPinyin}
                 </span>
               )}
             </>

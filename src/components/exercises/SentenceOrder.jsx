@@ -4,6 +4,35 @@ function normalize(s) {
   return s.replace(/[，。！？、\s]/g, "");
 }
 
+// Ghép pinyin của các từ theo ĐÚNG THỨ TỰ câu đúng (không theo thứ tự mảng
+// words vốn đã bị xáo trộn). Quét câu đúng, khớp từng từ (ưu tiên cụm dài như
+// 小林 trước 小) để lấy pinyin đã có sẵn trong data — không cần thư viện ngoài.
+function buildOrderedPinyin(sentence, words) {
+  if (!sentence || !Array.isArray(words)) return "";
+  const clean = sentence.replace(/[，。！？、\s]/g, "");
+  const sorted = [...words].sort(
+    (a, b) => (b.hanzi || "").length - (a.hanzi || "").length,
+  );
+  const parts = [];
+  let i = 0;
+  while (i < clean.length) {
+    let matched = null;
+    for (const w of sorted) {
+      if (w.hanzi && clean.startsWith(w.hanzi, i)) {
+        matched = w;
+        break;
+      }
+    }
+    if (matched) {
+      if (matched.pinyin) parts.push(matched.pinyin);
+      i += matched.hanzi.length;
+    } else {
+      i += 1; // ký tự không khớp từ nào (dấu câu sót...) -> bỏ qua
+    }
+  }
+  return parts.join(" ");
+}
+
 export default function SentenceOrder({ questions, onFinish }) {
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState(() =>
@@ -71,12 +100,8 @@ export default function SentenceOrder({ questions, onFinish }) {
               .filter(Boolean)
               .join(" ")
           : "";
-        // Thứ tự pinyin đúng: dựng lại theo correctSentence bằng cách so từng
-        // từ trong câu đúng với danh sách words (chỉ hiển thị tham khảo).
-        const correctPinyin = qq.words
-          .map((w) => w.pinyin)
-          .filter(Boolean)
-          .join(" ");
+        // Pinyin câu đúng: ghép theo THỨ TỰ câu đúng (không theo mảng words).
+        const correctPinyin = buildOrderedPinyin(qq.correctSentence, qq.words);
         return {
           type: "Sắp xếp câu",
           question: qq.words.map((w) => w.hanzi).join(" / "),
@@ -94,6 +119,9 @@ export default function SentenceOrder({ questions, onFinish }) {
       .filter(Boolean);
     onFinish(correctCount, wrong);
   };
+
+  // Pinyin của câu đúng (đúng thứ tự) cho câu hiện tại — hiện khi đã chấm.
+  const currentCorrectPinyin = buildOrderedPinyin(q.correctSentence, q.words);
 
   return (
     <div>
@@ -191,9 +219,23 @@ export default function SentenceOrder({ questions, onFinish }) {
               : "bg-red-50 text-red-700")
           }
         >
-          {answer.isCorrect
-            ? "Chính xác!"
-            : `Chưa đúng — câu đúng là: ${q.correctSentence}`}
+          {answer.isCorrect ? (
+            "Chính xác!"
+          ) : (
+            <>
+              <span className="block mb-2">
+                Chưa đúng — câu đúng là:
+              </span>
+              <span className="block">
+                {q.correctSentence}
+              </span>
+              {currentCorrectPinyin && (
+                <span className="block text-xs text-red-400 mt-0.5">
+                  {currentCorrectPinyin}
+                </span>
+              )}
+            </>
+          )}
         </div>
       )}
 
