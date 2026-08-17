@@ -15,7 +15,14 @@ export default function TranslationSection({ videos, onComplete }) {
                   key={index}
                   className="rounded-lg border border-gray-200 bg-white p-3"
                 >
-                  <p className="text-sm font-medium">{line.hanzi}</p>
+                  <p className="text-sm font-medium">
+                    {line.speaker && (
+                      <span className="text-gray-400 font-normal mr-1.5">
+                        {line.speaker}:
+                      </span>
+                    )}
+                    {line.hanzi}
+                  </p>
                   {line.pinyin && (
                     <p className="text-xs text-gray-400 mt-0.5">
                       {line.pinyin}
