@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useLessonPublicQuery } from "../hooks/usePublicCatalog.js";
 import { flattenLessonDialogue } from "../lib/lessonVideos.js";
 import SiteHeader from "../components/SiteHeader.jsx";
@@ -13,6 +13,7 @@ import ResultSection from "../components/ResultSection.jsx";
 
 export default function LessonDetailPage() {
   const { curriculumSlug, courseId, lessonId } = useParams();
+  const navigate = useNavigate();
   const {
     data: lesson,
     isLoading,
@@ -71,6 +72,14 @@ export default function LessonDetailPage() {
   const videos = lesson.videos || [];
   const activeVideo = videos[activeVideoIndex];
   const flatDialogue = flattenLessonDialogue(videos);
+
+  // Quy đổi số câu đúng thành thang điểm 100 cho màn hình kết quả. Để null khi
+  // chưa làm xong (hoặc bài không có câu hỏi nào) — thẻ kết quả sẽ hiện "--"
+  // thay vì hiện 0 điểm gây hiểu nhầm.
+  const exerciseScore =
+    exerciseResult && exerciseResult.total > 0
+      ? Math.round((exerciseResult.correct / exerciseResult.total) * 100)
+      : null;
 
   const statusOf = (step) => {
     if (step > completedCount + 1) return "locked";
@@ -186,6 +195,13 @@ export default function LessonDetailPage() {
               dialogue={flatDialogue}
               activeVideoIndex={activeVideoIndex}
               activeLineIndex={activeLineIndex}
+              lessonContext={{
+                lessonId: lesson._id,
+                lessonTitle: lesson.title,
+                curriculumSlug,
+                courseSlug: courseId,
+                lessonSlug: lessonId,
+              }}
               onRequestPlaySegment={requestPlaySegment}
               onComplete={(result) => {
                 setSpeakingResult(result);
@@ -210,10 +226,12 @@ export default function LessonDetailPage() {
 
           {finished && (
             <ResultSection
-              exerciseResult={exerciseResult}
-              speakingResult={speakingResult}
-              courseId={courseId}
-              curriculumSlug={curriculumSlug}
+              lessonOrder={lesson.order}
+              exerciseScore={exerciseScore}
+              pronunciationScore={speakingResult?.avgScore ?? null}
+              exerciseCorrect={exerciseResult?.correct}
+              exerciseTotal={exerciseResult?.total}
+              onBackToList={() => navigate(backToLessonsLink)}
             />
           )}
         </div>

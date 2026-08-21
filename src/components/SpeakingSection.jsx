@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import SpeakingPracticeModal from "./SpeakingPracticeModal.jsx";
 
 export default function SpeakingSection({
   dialogue,
   activeVideoIndex,
   activeLineIndex,
+  lessonContext,
   onRequestPlaySegment,
   onComplete,
 }) {
@@ -28,11 +29,43 @@ export default function SpeakingSection({
   };
 
   const saveResult = (index, result) => {
-    setResults((r) => ({ ...r, [index]: result }));
+    setResults((r) => {
+      // Luyện lại cùng một câu -> thu hồi object URL của bản ghi cũ. Không thu
+      // hồi thì mỗi lần luyện lại là một blob bị bỏ quên trong bộ nhớ, luyện
+      // nhiều lần sẽ phình dần.
+      const previous = r[index];
+      if (previous?.audioUrl && previous.audioUrl !== result.audioUrl) {
+        URL.revokeObjectURL(previous.audioUrl);
+      }
+      return { ...r, [index]: result };
+    });
   };
 
+  // Rời khỏi phần luyện nói -> nhả toàn bộ bản ghi đang giữ trong bộ nhớ.
+  // resultsRef để hàm dọn dẹp luôn nhìn thấy giá trị mới nhất mà không cần đưa
+  // results vào mảng phụ thuộc (làm vậy sẽ dọn nhầm sau mỗi lần lưu kết quả).
+  // Cập nhật ref trong effect, KHÔNG gán thẳng lúc render — gán khi render là
+  // thao tác phụ (side effect) trong pha render, React không đảm bảo an toàn.
+  const resultsRef = useRef(results);
+  useEffect(() => {
+    resultsRef.current = results;
+  }, [results]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(resultsRef.current).forEach((r) => {
+        if (r?.audioUrl) URL.revokeObjectURL(r.audioUrl);
+      });
+    };
+  }, []);
+
   const finish = () => {
-    const scores = Object.values(results).map((r) => r.pronScore);
+    // Bỏ qua các lượt không có điểm hợp lệ (bị iFLYTEK từ chối, hoặc đọc thiếu
+    // nên không qua cổng chấm). Gộp chúng vào như số 0 sẽ kéo tụt điểm trung
+    // bình một cách oan uổng.
+    const scores = Object.values(results)
+      .map((r) => r.pronScore)
+      .filter((v) => typeof v === "number");
     const avg = scores.length
       ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
       : 0;
@@ -121,7 +154,11 @@ export default function SpeakingSection({
                     }
                   >
                     <MicIcon />
-                    {result ? `${result.pronScore}đ` : "Luyện nói"}
+                    {result
+                      ? typeof result.pronScore === "number"
+                        ? `${result.pronScore}đ`
+                        : "Đọc lại"
+                      : "Luyện nói"}
                   </button>
                 </div>
 
@@ -166,6 +203,7 @@ export default function SpeakingSection({
         dialogue={dialogue}
         currentIndex={modalIndex}
         results={results}
+        lessonContext={lessonContext}
         onClose={() => setModalOpen(false)}
         onNavigate={setModalIndex}
         onRequestPlaySegment={onRequestPlaySegment}

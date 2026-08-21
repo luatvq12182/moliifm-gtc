@@ -6,7 +6,7 @@ body {
   @apply text-gray-900;
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.6)),
-    url(/images/Nen-chu-nhat-Molii.png);
+    url(/images/Nen-chu-nhat-Molii.webp);
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
@@ -19,7 +19,7 @@ video::-webkit-media-controls-overflow-button {
 .result-lesson {
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.25)),
-    url(/images/bg-result.png);
+    url(/images/bg-result.webp);
   background-size: cover;
   background-position: center;
 }

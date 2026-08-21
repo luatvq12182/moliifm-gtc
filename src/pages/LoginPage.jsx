@@ -59,7 +59,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm bg-white rounded-2xl border border-orange-200 shadow-[0_12px_32px_-8px_rgba(230,168,0,0.25)] p-6">
         <div className="text-center mb-6">
           <div className="rounded-full mx-auto mb-3 flex items-center justify-center text-xl font-heading font-bold">
-            <img className="h-16" src="/images/logo-moliifm.png" alt="Logo MoliiFM" />
+            <img className="h-16" src="/images/logo-moliifm.webp" alt="Logo MoliiFM" />
           </div>
         </div>
 

@@ -3,7 +3,6 @@ import {
   assessPronunciation,
   pinyinWithToneMarks,
 } from "../lib/iflytekSpeech.js";
-import { startMicLevelMeter } from "../lib/micLevel.js";
 
 // Phân loại lỗi để tô màu ô chữ. Ba nhóm:
 //  - ok  -> xanh (đọc đúng)
@@ -40,6 +39,7 @@ export default function SpeakingPracticeModal({
   dialogue,
   currentIndex,
   results,
+  lessonContext,
   onClose,
   onNavigate,
   onRequestPlaySegment,
@@ -50,7 +50,6 @@ export default function SpeakingPracticeModal({
   const [showTranslation, setShowTranslation] = useState(false);
   const [showPinyin, setShowPinyin] = useState(false);
   const [level, setLevel] = useState(0);
-  const stopMeterRef = useRef(null);
   const sessionRef = useRef(null);
 
   const line = dialogue[currentIndex];
@@ -68,7 +67,6 @@ export default function SpeakingPracticeModal({
 
   useEffect(() => {
     return () => {
-      if (stopMeterRef.current) stopMeterRef.current();
       if (sessionRef.current) sessionRef.current.stop();
     };
   }, []);
@@ -78,10 +76,20 @@ export default function SpeakingPracticeModal({
   const startRecording = async () => {
     setPhase("connecting"); // đang kết nối + chuẩn bị mic, CHƯA thu
     setErrorMsg("");
-    stopMeterRef.current = startMicLevelMeter(setLevel);
 
+    // Dải sóng giờ do chính phiên ghi âm cấp mức âm lượng, dùng chung một
+    // MediaStream — không mở microphone thêm lần nữa (xem micLevel.js).
     const session = assessPronunciation(line.hanzi, {
       onListening: () => setPhase("listening"), // mic đã thu thật sự
+      onLevel: setLevel,
+      // Bối cảnh để máy chủ lưu vào lịch sử luyện nói (chỉ khi
+      // PRACTICE_HISTORY_ENABLED bật ở backend — client luôn gửi, server quyết).
+      context: {
+        ...(lessonContext || {}),
+        lineIndex: currentIndex,
+        pinyin: line.pinyin || "",
+        vi: line.vi || "",
+      },
     });
     sessionRef.current = session;
 
@@ -96,10 +104,6 @@ export default function SpeakingPracticeModal({
       setPhase("error");
     } finally {
       sessionRef.current = null;
-      if (stopMeterRef.current) {
-        stopMeterRef.current();
-        stopMeterRef.current = null;
-      }
       setLevel(0);
     }
   };
@@ -186,6 +190,29 @@ export default function SpeakingPracticeModal({
             </button>
           </div>
 
+          {/* Nghe lại chính giọng mình — công cụ mạnh nhất trong luyện phát âm:
+              nghe mình đọc rồi nghe câu mẫu, tai sẽ tự chỉ ra chỗ khác nhau mà
+              con số không nói được. Bản ghi chỉ nằm trong bộ nhớ trình duyệt,
+              tải lại trang là mất. */}
+          {phase === "result" && existingResult?.audioUrl && (
+            <div className="mt-5 flex items-center justify-center gap-2">
+              <PlaybackButton src={existingResult.audioUrl} />
+              <button
+                onClick={() =>
+                  onRequestPlaySegment(
+                    line.videoIndex,
+                    line.startTime,
+                    line.endTime,
+                  )
+                }
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              >
+                <SpeakerSmallIcon />
+                Câu mẫu
+              </button>
+            </div>
+          )}
+
           {phase === "result" && existingResult && existingResult.rejected && (
             <div className="mt-5 text-left bg-amber-50 border border-amber-200 rounded-2xl p-4">
               <div className="flex items-start gap-2.5 mb-3">
@@ -259,51 +286,66 @@ export default function SpeakingPracticeModal({
                 </p>
               </div>
 
-              {existingResult.chars?.length > 0 && (
-                <div>
-                  <p className="text-[11px] text-gray-400 mb-1.5">
-                    Chi tiết từng chữ:
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {existingResult.chars.map((c, i) => {
-                      const style = charStyle(c);
-                      return (
-                        <div
-                          key={i}
-                          className={
-                            "flex flex-col items-center px-2.5 py-1.5 rounded-lg border " +
-                            style.box
-                          }
-                        >
-                          <span className="text-base font-medium leading-tight">
-                            {c.content}
-                          </span>
-                          {c.pinyin && (
-                            <span className="text-[10px] leading-tight">
-                              {pinyinWithToneMarks(c.pinyin)}
-                            </span>
-                          )}
-                          {!c.ok && c.issue && (
-                            <span
-                              className={
-                                "text-[9px] font-medium leading-tight mt-0.5 " +
-                                style.label
-                              }
-                            >
-                              {c.issue}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {/* Chú thích màu để học viên hiểu ý nghĩa. */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
-                    <LegendDot className="bg-green-400" text="Đọc đúng" />
-                    <LegendDot className="bg-red-400" text="Sai phát âm" />
-                    <LegendDot className="bg-amber-400" text="Thừa/thiếu chữ" />
+              {/* CÁCH CHỈ LỖI THEO TỪ (thay cho theo từng chữ rời).
+                  Chấm từng chữ tuy chi tiết nhưng báo sai oan rất nhiều, dồn
+                  vào âm tiết thanh nhẹ. Máy chủ gom chữ thành từ dựa vào phiên
+                  âm câu mẫu — xem gtc-api/src/lib/wordFeedback.js. */}
+              {existingResult.words?.length > 0 && (
+                <div className="mb-3">
+                  <div className="flex flex-wrap justify-center gap-1.5">
+                    {existingResult.words.map((w, i) => (
+                      <WordChip key={i} word={w} />
+                    ))}
                   </div>
                 </div>
+              )}
+
+              {/* Chỉ nêu ĐÚNG MỘT từ đáng luyện nhất. Đưa cùng lúc năm chỗ cần
+                  sửa thì học viên không sửa chỗ nào cả. */}
+              {existingResult.focusWord && (
+                <div className="flex items-center gap-3 bg-white rounded-xl border border-red-200 px-3 py-2.5 mb-3">
+                  <div className="min-w-0">
+                    <p className="text-lg font-medium text-red-600 leading-tight">
+                      {existingResult.focusWord.content}
+                    </p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 leading-tight">
+                      {existingResult.focusWord.issue || "Phát âm chưa đúng"}
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      Luyện lại từ này vài lần nhé
+                    </p>
+                  </div>
+                  <div className="shrink-0 w-16">
+                    <div className="h-1.5 rounded-full bg-gray-200 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-red-400"
+                        style={{ width: `${existingResult.focusWord.score}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-red-500 text-right mt-1 leading-none">
+                      {existingResult.focusWord.score}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {existingResult.feedback && (
+                <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 mb-3">
+                  <p className="text-[10px] font-medium tracking-wide text-amber-600 mb-1">
+                    PHẢN HỒI
+                  </p>
+                  <p className="text-sm text-gray-700 leading-snug">
+                    {existingResult.feedback}
+                  </p>
+                </div>
+              )}
+
+              {/* Chi tiết từng chữ vẫn giữ, nhưng ẩn đi — ai muốn soi kỹ thì mở.
+                  Mặc định không đập vào mắt một mảng chữ đỏ nữa. */}
+              {existingResult.chars?.length > 0 && (
+                <CharDetail chars={existingResult.chars} />
               )}
             </div>
           )}
@@ -391,12 +433,145 @@ export default function SpeakingPracticeModal({
   );
 }
 
-function LegendDot({ className, text }) {
+// Một TỪ trong câu. Màu theo mức độ, không phải đúng/sai nhị phân — vì ranh
+// giới giữa "đọc được" và "đọc sai" vốn không dứt khoát.
+function WordChip({ word }) {
+  const tone =
+    word.status === "good"
+      ? "border-green-300 bg-green-50 text-green-700"
+      : word.status === "fair"
+        ? "border-amber-300 bg-amber-50 text-amber-700"
+        : "border-red-300 bg-red-50 text-red-700";
+
   return (
-    <span className="flex items-center gap-1">
-      <span className={"w-2 h-2 rounded-full " + className} />
-      <span className="text-[9px] text-gray-400">{text}</span>
+    <span
+      className={"px-3 py-1.5 rounded-xl border text-base font-medium " + tone}
+    >
+      {word.content}
     </span>
+  );
+}
+
+// Chi tiết từng chữ — giữ lại cho ai muốn soi kỹ, nhưng mặc định thu gọn.
+function CharDetail({ chars }) {
+  const [open, setOpen] = useState(false);
+  const wrongCount = chars.filter((c) => !c.ok).length;
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="text-[11px] text-gray-400 underline"
+      >
+        {open
+          ? "Ẩn chi tiết từng chữ"
+          : `Xem chi tiết từng chữ (${wrongCount} chữ cần chú ý)`}
+      </button>
+
+      {open && (
+        <>
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {chars.map((c, i) => {
+              const style = charStyle(c);
+              return (
+                <div
+                  key={i}
+                  className={
+                    "flex flex-col items-center px-2.5 py-1.5 rounded-lg border " +
+                    style.box
+                  }
+                >
+                  <span className="text-base font-medium leading-tight">
+                    {c.content}
+                  </span>
+                  {c.pinyin && (
+                    <span className="text-[10px] leading-tight">
+                      {pinyinWithToneMarks(c.pinyin)}
+                    </span>
+                  )}
+                  {!c.ok && c.issue && (
+                    <span
+                      className={
+                        "text-[9px] font-medium leading-tight mt-0.5 " +
+                        style.label
+                      }
+                    >
+                      {c.issue}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Nút phát bản ghi của học viên. Tự dựng <audio> thay vì dùng thẻ có sẵn để
+// kiểm soát được trạng thái đang phát và tự dừng khi đổi sang câu khác.
+function PlaybackButton({ src }) {
+  const audioRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+
+  // Đổi câu -> src đổi -> dừng và dựng lại thẻ audio mới.
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, [src]);
+
+  const toggle = () => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio(src);
+      audioRef.current.onended = () => setPlaying(false);
+    }
+    if (playing) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setPlaying(false);
+    } else {
+      audioRef.current.play().catch(() => setPlaying(false));
+      setPlaying(true);
+    }
+  };
+
+  return (
+    <button
+      onClick={toggle}
+      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-amber-100 text-amber-800 text-xs font-medium hover:bg-amber-200"
+    >
+      {playing ? <StopIcon /> : <PlaySmallIcon />}
+      {playing ? "Dừng" : "Nghe lại giọng bạn"}
+    </button>
+  );
+}
+
+function PlaySmallIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+      <polygon points="5,3 19,12 5,21" />
+    </svg>
+  );
+}
+
+function SpeakerSmallIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <polygon points="3 9 3 15 8 15 13 20 13 4 8 9 3 9" />
+      <path d="M16 8a5 5 0 010 8" strokeLinecap="round" />
+    </svg>
   );
 }
 

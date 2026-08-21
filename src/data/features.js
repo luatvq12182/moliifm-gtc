@@ -5,7 +5,7 @@ export const features = [
         description: 'Xem video hội thoại, làm bài tập và luyện nói cùng AI chấm điểm phát âm',
         available: true,
         route: '/nghe-noi-video-ai',
-        thumbnail: '/images/features/nghe-noi-video-ai.png',
+        thumbnail: '/images/features/nghe-noi-video-ai.webp',
         // tags: ['Nghe hiểu', 'Luyện nói', 'AI chấm điểm'],
     },
     // {

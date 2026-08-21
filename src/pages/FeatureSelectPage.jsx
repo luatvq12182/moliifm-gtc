@@ -23,6 +23,7 @@ const THEME = {
 
 const PRIMARY_TAGS = [
   { label: "Nghe hiểu", icon: <HeadphoneIcon /> },
+  { label: "Bài tập dạng đề HSK", icon: <HskExerciseIcon /> },
   { label: "Luyện nói", icon: <MicIcon /> },
   { label: "AI chấm điểm", icon: <SparkleIcon /> },
 ];
@@ -163,6 +164,30 @@ function HeadphoneIcon() {
   );
 }
 
+function HskExerciseIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      {/* Tờ đề/tài liệu */}
+      <path
+        d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Góc gấp của tờ giấy */}
+      <path d="M14 3v6h6" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Dấu tích — biểu thị bài tập/đề đã làm đúng */}
+      <path d="M9 14l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function MicIcon() {
   return (
     <svg
@@ -183,49 +208,6 @@ function SparkleIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 2l1.5 6.5L20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5z" />
-    </svg>
-  );
-}
-
-function BellIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path
-        d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M13.73 21a2 2 0 01-3.46 0"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ChevronDownIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <polyline
-        points="6 9 12 15 18 9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
     </svg>
   );
 }
@@ -261,33 +243,6 @@ function LockIcon() {
     >
       <rect x="4" y="10" width="16" height="10" rx="2" />
       <path d="M8 10V7a4 4 0 018 0v3" />
-    </svg>
-  );
-}
-
-function CrownIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M3 19h18v2H3v-2zm0-11l4 3 5-6 5 6 4-3-2 9H5L3 8z" />
-    </svg>
-  );
-}
-
-function GiftIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <rect x="3" y="8" width="18" height="13" rx="1" />
-      <path
-        d="M12 8v13M3 12h18M12 8c-1.5-3-5-3-5-1s2 1 5 1zm0 0c1.5-3 5-3 5-1s-2 1-5 1z"
-        strokeLinecap="round"
-      />
     </svg>
   );
 }

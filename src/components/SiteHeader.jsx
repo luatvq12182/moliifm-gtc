@@ -31,7 +31,7 @@ export default function SiteHeader({
       <div className="flex items-center gap-3 min-w-0">
         <Link to="/" className="flex items-center gap-2 shrink-0">
           <ThumbnailImage
-            src="/images/logo-moliifm.png"
+            src="/images/logo-moliifm.webp"
             alt="Molii"
             className="w-20 object-cover shrink-0"
           />

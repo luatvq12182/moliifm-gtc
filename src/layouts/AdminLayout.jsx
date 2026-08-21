@@ -68,7 +68,7 @@ export default function AdminLayout() {
         <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="min-w-0">
-              <img className="h-12" src="/images/logo-moliifm.png" alt="" />
+              <img className="h-12" src="/images/logo-moliifm.webp" alt="" />
               <p className="text-[11px] text-gray-400 leading-tight mt-2">
                 Trang quản trị
               </p>

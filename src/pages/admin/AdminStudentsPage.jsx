@@ -10,6 +10,8 @@ import {
 } from "../../hooks/useStudents.js";
 import StudentFormModal from "../../components/admin/StudentFormModal.jsx";
 import CredentialModal from "../../components/admin/CredentialModal.jsx";
+import PracticeHistoryModal from "../../components/admin/PracticeHistoryModal.jsx";
+import { useAppConfigQuery } from "../../hooks/useAppConfig.js";
 
 function formatJoinedDate(createdAt) {
   return new Date(createdAt).toLocaleDateString("vi-VN");
@@ -24,6 +26,13 @@ export default function AdminStudentsPage() {
   const [modalMode, setModalMode] = useState("create"); // 'create' | 'edit'
   const [editingStudent, setEditingStudent] = useState(null);
   const [credential, setCredential] = useState(null); // { name, tempPassword } | null
+  const [historyStudent, setHistoryStudent] = useState(null); // học viên đang xem lịch sử luyện nói
+
+  // Mục "Lịch sử luyện nói" chỉ tồn tại khi máy chủ bật PRACTICE_HISTORY_ENABLED.
+  // Khi sản phẩm ra thị trường thì tắt cờ ở backend, nút này tự biến mất — không
+  // cần sửa hay build lại frontend.
+  const { data: appConfig } = useAppConfigQuery();
+  const practiceHistoryEnabled = Boolean(appConfig?.practiceHistoryEnabled);
 
   const { data, isLoading, isError, error } = useStudentsQuery({
     search: debouncedSearch,
@@ -286,6 +295,17 @@ export default function AdminStudentsPage() {
                       >
                         Đặt lại MK
                       </button>
+                      {practiceHistoryEnabled && (
+                        <>
+                          <span className="text-gray-300">·</span>
+                          <button
+                            onClick={() => setHistoryStudent(s)}
+                            className="text-xs text-gray-600 hover:underline"
+                          >
+                            Lịch sử luyện nói
+                          </button>
+                        </>
+                      )}
                       <span className="text-gray-300">·</span>
                       <button
                         onClick={() => handleToggleStatus(s)}
@@ -399,6 +419,14 @@ export default function AdminStudentsPage() {
                   >
                     Đặt lại MK
                   </button>
+                  {practiceHistoryEnabled && (
+                    <button
+                      onClick={() => setHistoryStudent(s)}
+                      className="text-gray-600 font-medium"
+                    >
+                      Lịch sử nói
+                    </button>
+                  )}
                   <button
                     onClick={() => handleToggleStatus(s)}
                     className="text-red-500 font-medium"
@@ -458,6 +486,19 @@ export default function AdminStudentsPage() {
             : createStudent.error?.message) || ""
         }
       />
+
+      {historyStudent && (
+
+        <PracticeHistoryModal
+
+          student={historyStudent}
+
+          onClose={() => setHistoryStudent(null)}
+
+        />
+
+      )}
+
 
       <CredentialModal
         open={Boolean(credential)}

@@ -6,7 +6,60 @@
 // Giữ nguyên "giao diện" như bản Azure: assessPronunciation(text) trả về
 // { result: Promise, stop() } để SpeakingPracticeModal không phải đổi nhiều.
 
+import { attachLevelMeter } from './micLevel.js'
+import { encodeWav } from './wavEncoder.js'
+import { getStudentToken } from './studentAuth.js'
+
+// Worklet nằm trong public/ nên được phục vụ nguyên xi tại đường dẫn cố định.
+// Ghép với BASE_URL để vẫn đúng khi ứng dụng deploy dưới thư mục con.
+// Xem đầu file public/worklets/pcm-recorder.js để biết vì sao không đặt trong src/.
+const PCM_WORKLET_URL = `${import.meta.env.BASE_URL}worklets/pcm-recorder.js`
+
 const TARGET_RATE = 16000
+
+// Kích thước block của ScriptProcessorNode. Ở 16kHz, 1024 frame = 64ms audio.
+// Trước đây dùng 4096 frame: ở 16kHz đó là 256ms, nghĩa là block đang thu dở
+// khi học viên bấm "Dừng" có thể chứa tới 1/4 giây — đủ để nuốt trọn âm tiết
+// cuối câu.
+const BLOCK_SIZE = 1024
+
+// Sau khi bấm "Dừng", giữ audio graph sống thêm một nhịp để block đang thu dở
+// được đẩy nốt lên WebSocket rồi mới gửi mốc 'end'. Nếu tháo graph ngay (như
+// bản cũ) thì phần đuôi câu bị vứt -> iFLYTEK báo chữ cuối sai hoặc "đọc thiếu".
+const TAIL_FLUSH_MS = 300
+
+// Tần số cắt cho bộ lọc chống aliasing ở nhánh dự phòng. Nyquist của 16kHz là
+// 8kHz; chừa khoảng dốc cho bộ lọc nên cắt ở 6kHz.
+const ANTIALIAS_CUTOFF_HZ = 6000
+const ANTIALIAS_STAGES = 4
+
+// Constraint microphone cho việc CHẤM PHÁT ÂM.
+//
+// Cả ba thứ dưới đây mặc định BẬT trong trình duyệt vì chúng được thiết kế cho
+// gọi thoại — và cả ba đều phá hoại việc chấm phát âm:
+//
+//  - noiseSuppression: nhận diện "nhiễu" bằng đặc trưng phổ băng rộng, năng
+//    lượng thấp, giống nhiễu trắng. Đó ĐÚNG là mô tả của phụ âm xát tiếng Trung
+//    (s, sh, x, c, ch, q, f, h). Nó bóp chính cái mà iFLYTEK cần nghe để chấm
+//    thanh mẫu.
+//  - autoGainControl: dò gain liên tục với hằng số thời gian chậm. Với một câu
+//    chỉ dài 2-3 giây thì AGC vẫn đang dò suốt cả câu, làm méo tương quan năng
+//    lượng giữa các âm tiết -> hỏng điểm thanh điệu và điểm đầy đủ.
+//  - echoCancellation: trừ tín hiệu mà chính máy đang phát ra khỏi mic. Có
+//    video mẫu phát ngay cột bên cạnh; lệch pha một chút là AEC cắt cả giọng
+//    người dùng.
+//
+// ĐÁNH ĐỔI: tắt echoCancellation nghĩa là nếu học viên bật loa ngoài và cho
+// video mẫu chạy TRONG LÚC đang ghi âm thì tiếng video sẽ lọt vào mic. Luồng UI
+// hiện tại tách riêng nút nghe mẫu và nút ghi âm nên rủi ro thấp. Nếu về sau
+// thấy có vấn đề, bật lại RIÊNG echoCancellation ở đây là đủ — đừng bật lại
+// noiseSuppression/autoGainControl.
+const MIC_CONSTRAINTS = {
+    channelCount: 1,
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false,
+}
 
 // Timeout tổng cho một phiên chấm — KHÔNG cố định, mà tính theo độ dài câu.
 // Lý do: người đọc là HỌC VIÊN mới học, đọc chậm hơn người bản xứ nhiều (có
@@ -52,20 +105,164 @@ function resolveWsUrl() {
     }
 }
 
-// Float32 [-1,1] -> Int16 PCM, kèm hạ sample rate về 16k.
-function downsampleToPCM16(float32, inRate) {
-    const ratio = inRate / TARGET_RATE
-    const outLen = Math.floor(float32.length / ratio)
-    const out = new Int16Array(outLen)
-    for (let i = 0; i < outLen; i++) {
-        const s = Math.max(-1, Math.min(1, float32[Math.floor(i * ratio)]))
+// Float32 [-1,1] -> Int16 PCM. KHÔNG đổi sample rate — việc hạ tần số lấy mẫu
+// đã được xử lý ở tầng audio graph (xem createCaptureGraph bên dưới).
+function floatToPCM16(float32, length) {
+    const n = length === undefined ? float32.length : length
+    const out = new Int16Array(n)
+    for (let i = 0; i < n; i++) {
+        const s = Math.max(-1, Math.min(1, float32[i]))
         out[i] = s < 0 ? s * 0x8000 : s * 0x7fff
     }
     return out
 }
 
+// Bộ hạ sample DỰ PHÒNG, chỉ dùng khi trình duyệt không cho tạo AudioContext ở
+// 16kHz.
+//
+// BẢN CŨ SAI Ở ĐÂY: nó decimate trần (48k -> 16k thì cứ 3 mẫu lấy 1, vứt 2) mà
+// KHÔNG lọc thông thấp trước. Mọi năng lượng trên 8kHz không biến mất, nó gập
+// ngược xuống dải 0-8kHz thành tần số giả: 10kHz -> 6kHz, 12kHz -> 4kHz,
+// 14kHz -> 2kHz. Đúng dải quyết định của thanh mẫu (s/sh/x/c/ch/q phân biệt
+// nhau bằng hình dạng phổ 3-16kHz) và của vận mẫu (formant F2/F3 ở 1.5-3.5kHz).
+// Kết quả là iFLYTEK báo sai thanh mẫu/vận mẫu với người đọc chuẩn.
+//
+// Bản này giữ pha lấy mẫu LIÊN TỤC giữa các block (bản cũ reset về 0 mỗi block,
+// gây gián đoạn tuần hoàn khi tỉ lệ không phải số nguyên, vd. 44.1kHz) và lấy
+// trung bình cửa sổ thay vì lấy mẫu điểm.
+function createDecimator(inRate) {
+    const ratio = inRate / TARGET_RATE
+    let phase = 0 // vị trí lấy mẫu còn dư, mang sang block kế tiếp
+
+    return function decimate(input) {
+        const outLen = Math.max(0, Math.ceil((input.length - phase) / ratio))
+        const out = new Float32Array(outLen)
+        let n = 0
+        for (let pos = phase; pos < input.length; pos += ratio) {
+            // Trung bình các mẫu trong cửa sổ [pos, pos+ratio) — thêm một tầng
+            // lọc nhẹ nữa và tránh phụ thuộc vào đúng một mẫu đơn lẻ.
+            const start = Math.floor(pos)
+            const end = Math.min(input.length, Math.floor(pos + ratio))
+            let sum = 0
+            let count = 0
+            for (let i = start; i < end; i++) {
+                sum += input[i]
+                count++
+            }
+            out[n++] = count > 0 ? sum / count : input[start] || 0
+            phase = pos + ratio
+        }
+        phase -= input.length
+        if (phase < 0) phase = 0
+        return { data: out, length: n }
+    }
+}
+
 export function isSpeechSupported() {
     return typeof window !== 'undefined' && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+}
+
+// Dựng audio graph để thu về PCM 16kHz ĐÚNG CÁCH.
+//
+// Cách tốt nhất: tạo thẳng AudioContext ở 16kHz. Khi đó MediaStreamAudioSourceNode
+// sẽ được CHÍNH trình duyệt hạ tần số lấy mẫu, bằng bộ resample có lọc chống
+// aliasing đàng hoàng — thứ mà code tay của bản cũ thiếu. Ta chỉ còn việc đổi
+// float sang int16, không đụng gì tới tần số nữa.
+//
+// Nhánh dự phòng (trình duyệt từ chối 16kHz): giữ context ở tần số gốc, tự chèn
+// chuỗi 4 bộ lọc thông thấp biquad (48 dB/octave) rồi mới decimate. Không sắc
+// bằng resampler của trình duyệt và hy sinh một ít dải 6-8kHz, nhưng vẫn chặn
+// được phần gập ngược tệ nhất (10-16kHz gập xuống 0-6kHz).
+async function createCaptureGraph(stream, onSamples) {
+    const AudioCtor = window.AudioContext || window.webkitAudioContext
+
+    let audioCtx = null
+    try {
+        audioCtx = new AudioCtor({ sampleRate: TARGET_RATE })
+    } catch (e) {
+        audioCtx = new AudioCtor()
+    }
+    // Một số trình duyệt nhận tham số nhưng lặng lẽ bỏ qua -> phải kiểm tra lại
+    // tần số thật của context chứ không tin vào tham số đã truyền.
+    if (audioCtx.sampleRate !== TARGET_RATE) {
+        try {
+            if (audioCtx.state !== 'closed') audioCtx.close().catch(() => { })
+        } catch (e) { /* bỏ qua */ }
+        audioCtx = new AudioCtor()
+    }
+
+    const nativeRate = audioCtx.sampleRate
+    const needsResample = nativeRate !== TARGET_RATE
+
+    const source = audioCtx.createMediaStreamSource(stream)
+
+    // Đầu chuỗi lọc — nếu không cần resample thì lấy thẳng source.
+    let tail = source
+    const filters = []
+    if (needsResample) {
+        for (let i = 0; i < ANTIALIAS_STAGES; i++) {
+            const f = audioCtx.createBiquadFilter()
+            f.type = 'lowpass'
+            f.frequency.value = ANTIALIAS_CUTOFF_HZ
+            f.Q.value = Math.SQRT1_2 // Butterworth, không gợn ở dải thông
+            tail.connect(f)
+            tail = f
+            filters.push(f)
+        }
+    }
+
+    // ---- Node thu âm: ưu tiên AudioWorklet, lùi về ScriptProcessor ----
+    //
+    // AudioWorklet chạy trên luồng âm thanh riêng nên không bị React/animation
+    // cướp thời gian -> không rơi block. ScriptProcessor chạy trên main thread
+    // và rơi block im lặng khi máy bận (thấy rõ trên điện thoại tầm trung).
+    // Giữ ScriptProcessor làm phương án lùi cho trình duyệt quá cũ.
+    let processor = null
+    let captureMode = ''
+
+    if (audioCtx.audioWorklet) {
+        try {
+            await audioCtx.audioWorklet.addModule(PCM_WORKLET_URL)
+            processor = new AudioWorkletNode(audioCtx, 'pcm-recorder', {
+                numberOfInputs: 1,
+                numberOfOutputs: 1,
+                outputChannelCount: [1],
+                channelCount: 1,
+            })
+            processor.port.onmessage = (e) => onSamples(e.data)
+            captureMode = 'worklet'
+        } catch (e) {
+            processor = null // trình duyệt có audioWorklet nhưng nạp module lỗi
+        }
+    }
+
+    if (!processor) {
+        processor = audioCtx.createScriptProcessor(BLOCK_SIZE, 1, 1)
+        processor.onaudioprocess = (e) => {
+            // Bắt buộc sao chép: inputBuffer được tái sử dụng cho block sau.
+            onSamples(new Float32Array(e.inputBuffer.getChannelData(0)))
+        }
+        captureMode = 'scriptprocessor'
+    }
+
+    tail.connect(processor)
+
+    // Đầu ra của node thu phải đi tới destination thì mới được đưa vào đồ thị
+    // kết xuất: Web Audio kéo dữ liệu TỪ destination ngược lên, node không nằm
+    // trên đường đi tới destination có thể không bao giờ được chạy (chắc chắn
+    // đúng với ScriptProcessorNode; với AudioWorkletNode thì tuỳ trình duyệt).
+    //
+    // Nhưng nối thẳng ra loa thì có nguy cơ vọng tiếng, nên chèn một GainNode
+    // gain = 0 ở giữa: node vẫn được kết xuất, mà tuyệt đối không phát ra tiếng
+    // dù trình duyệt có xử lý output buffer kiểu gì.
+    const silentSink = audioCtx.createGain()
+    silentSink.gain.value = 0
+    processor.connect(silentSink)
+    silentSink.connect(audioCtx.destination)
+
+    const decimate = needsResample ? createDecimator(nativeRate) : null
+
+    return { audioCtx, source, processor, filters, silentSink, decimate, nativeRate, captureMode }
 }
 
 // Diễn giải except_info của iFLYTEK thành lý do bị từ chối, dễ hiểu cho học
@@ -107,21 +304,60 @@ function interpretRejection(exceptInfo) {
 }
 
 // Trả về { result: Promise, stop() }.
-export function assessPronunciation(referenceText, { onListening } = {}) {
+export function assessPronunciation(referenceText, { onListening, onLevel, context = {} } = {}) {
     let ws = null
     let audioCtx = null
     let processor = null
     let source = null
+    let filters = []
+    let silentSink = null
     let stream = null
+    let stopMeter = null
     let recording = false
     let settled = false
     let timeoutId = null
+    let flushId = null
+
+    // Giữ lại BẢN SAO của audio đã gửi đi, để học viên nghe lại giọng mình.
+    // Dữ liệu này vốn đã đi qua tay ta rồi (ta tự tính ra từng mẫu PCM để gửi
+    // lên server) — "ghi âm" chỉ là giữ lại thay vì vứt đi, không tốn thêm
+    // băng thông và không cần MediaRecorder.
+    let recordedChunks = []
+    let recordedSamples = 0
+    // Trần an toàn khớp với trần phía máy chủ (90 giây ở 16kHz).
+    const MAX_RECORDED_SAMPLES = TARGET_RATE * 90
+
+    // Thông tin kỹ thuật của lần thu này, gửi kèm để lưu vào lịch sử — chính là
+    // thứ giúp trả lời "vì sao máy này chấm khác máy kia".
+    const captureInfo = {}
 
     const cleanupAudio = () => {
         recording = false
+        if (stopMeter) {
+            try {
+                stopMeter()
+            } catch (e) { /* bỏ qua */ }
+            stopMeter = null
+        }
         try {
-            if (processor) processor.disconnect()
+            if (processor) {
+                // ScriptProcessorNode dùng onaudioprocess, AudioWorkletNode dùng
+                // port.onmessage — gỡ cả hai, node nào không có thì bỏ qua.
+                processor.onaudioprocess = null
+                if (processor.port) processor.port.onmessage = null
+                processor.disconnect()
+            }
         } catch (e) { /* bỏ qua */ }
+        filters.forEach((f) => {
+            try {
+                f.disconnect()
+            } catch (e) { /* bỏ qua */ }
+        })
+        filters = []
+        try {
+            if (silentSink) silentSink.disconnect()
+        } catch (e) { /* bỏ qua */ }
+        silentSink = null
         try {
             if (source) source.disconnect()
         } catch (e) { /* bỏ qua */ }
@@ -139,6 +375,15 @@ export function assessPronunciation(referenceText, { onListening } = {}) {
         audioCtx = null
     }
 
+    // Tắt stream vừa được cấp trong trường hợp phiên đã kết thúc trước khi kịp
+    // dựng audio graph (lúc đó chưa có gì để cleanupAudio tháo).
+    const abandonStream = () => {
+        try {
+            if (stream) stream.getTracks().forEach((t) => t.stop())
+        } catch (e) { /* bỏ qua */ }
+        stream = null
+    }
+
     const closeWs = () => {
         try {
             if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) ws.close()
@@ -153,9 +398,29 @@ export function assessPronunciation(referenceText, { onListening } = {}) {
             settled = true
             if (timeoutId) clearTimeout(timeoutId)
             timeoutId = null
+            // Hủy luôn nhịp chờ đẩy nốt đuôi câu (nếu đang chờ) để không có
+            // lệnh 'end' lạc gửi đi sau khi phiên đã kết thúc.
+            if (flushId) clearTimeout(flushId)
+            flushId = null
             cleanupAudio()
             closeWs()
             fn(payload)
+        }
+
+
+        // Dựng file WAV từ những mẩu PCM đã giữ lại. Trả kèm vào kết quả để
+        // SpeakingPracticeModal cho học viên bấm nghe lại ngay.
+        // LƯU Ý: blob này chỉ nằm trong bộ nhớ trình duyệt — tải lại trang là
+        // mất. Việc lưu lâu dài (nếu có) do máy chủ đảm nhiệm và bị khống chế
+        // bởi cờ PRACTICE_HISTORY_ENABLED.
+        const buildRecording = () => {
+            if (recordedChunks.length === 0) return { audioBlob: null, audioUrl: '' }
+            try {
+                const blob = encodeWav(recordedChunks, TARGET_RATE)
+                return { audioBlob: blob, audioUrl: URL.createObjectURL(blob) }
+            } catch (e) {
+                return { audioBlob: null, audioUrl: '' }
+            }
         }
 
         // Lớp bảo vệ: timeout tổng — không bao giờ đơ vĩnh viễn.
@@ -175,28 +440,124 @@ export function assessPronunciation(referenceText, { onListening } = {}) {
         ws.binaryType = 'arraybuffer'
 
         ws.onopen = async () => {
-            ws.send(JSON.stringify({ type: 'start', text: referenceText }))
+            // Token học viên đi trong PAYLOAD chứ không phải query string của
+            // URL WebSocket: URL bị ghi vào access log của Nginx, payload thì không.
+            ws.send(
+                JSON.stringify({
+                    type: 'start',
+                    token: getStudentToken(),
+                    text: referenceText,
+                    context,
+                })
+            )
 
             try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
-                })
+                stream = await navigator.mediaDevices.getUserMedia({ audio: MIC_CONSTRAINTS })
             } catch (e) {
                 finish(reject, 'Không truy cập được microphone. Kiểm tra quyền trình duyệt.')
                 return
             }
-
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-            source = audioCtx.createMediaStreamSource(stream)
-            processor = audioCtx.createScriptProcessor(4096, 1, 1)
-            processor.onaudioprocess = (e) => {
-                if (!recording) return
-                const input = e.inputBuffer.getChannelData(0)
-                const pcm = downsampleToPCM16(input, audioCtx.sampleRate)
-                if (ws && ws.readyState === WebSocket.OPEN) ws.send(pcm.buffer)
+            // Phiên có thể đã kết thúc (timeout/lỗi/người dùng đóng modal) TRONG
+            // lúc chờ cấp quyền mic. Khi đó cleanupAudio() đã chạy xong từ trước
+            // và không biết gì về stream vừa mới được cấp — phải tự tắt ở đây,
+            // nếu không đèn báo mic của trình duyệt sẽ sáng mãi.
+            if (settled) {
+                abandonStream()
+                return
             }
-            source.connect(processor)
-            processor.connect(audioCtx.destination)
+
+            // Ghi lại constraint mà trình duyệt THỰC SỰ áp dụng (không phải cái
+            // ta yêu cầu). Nếu ta xin noiseSuppression:false mà nó trả về true
+            // thì biết ngay nền tảng đã đè lên — thông tin vàng khi chẩn đoán
+            // "cùng một câu, máy này chấm khác máy kia".
+            try {
+                const track = stream.getAudioTracks()[0]
+                const settings = track ? track.getSettings() : {}
+                captureInfo.micLabel = track ? track.label : ''
+                captureInfo.micSampleRate = settings.sampleRate ?? null
+                captureInfo.echoCancellation = settings.echoCancellation ?? null
+                captureInfo.noiseSuppression = settings.noiseSuppression ?? null
+                captureInfo.autoGainControl = settings.autoGainControl ?? null
+            } catch (e) { /* bỏ qua, chỉ là thông tin chẩn đoán */ }
+
+            // Khai báo TRƯỚC handleSamples: callback được truyền vào
+            // createCaptureGraph và có thể bị gọi ngay khi node vừa nối, tức là
+            // trước lúc lệnh gán bên dưới chạy xong. Khai báo sau sẽ rơi vào
+            // vùng chết (TDZ) của let và ném ReferenceError.
+            let graph = null
+
+            // Nhận từng mẩu mẫu thô từ node thu (worklet hoặc scriptprocessor),
+            // hạ tần số nếu cần, gửi lên server VÀ giữ lại một bản.
+            const handleSamples = (input) => {
+                if (!recording || !input || input.length === 0) return
+                let pcm
+                if (graph && graph.decimate) {
+                    const { data, length } = graph.decimate(input)
+                    pcm = floatToPCM16(data, length)
+                } else {
+                    pcm = floatToPCM16(input)
+                }
+                if (pcm.length === 0) return
+                if (ws && ws.readyState === WebSocket.OPEN) ws.send(pcm.buffer)
+                if (recordedSamples + pcm.length <= MAX_RECORDED_SAMPLES) {
+                    recordedChunks.push(pcm)
+                    recordedSamples += pcm.length
+                }
+            }
+
+            try {
+                graph = await createCaptureGraph(stream, handleSamples)
+            } catch (e) {
+                abandonStream()
+                finish(reject, 'Không khởi tạo được bộ thu âm trên trình duyệt này.')
+                return
+            }
+            if (settled) {
+                try {
+                    graph.audioCtx.close().catch(() => { })
+                } catch (err) { /* bỏ qua */ }
+                abandonStream()
+                return
+            }
+
+            captureInfo.captureMode = graph.captureMode
+            // Tần số THẬT của AudioContext — khác với tần số của micro ở trên.
+            // Đây mới là thứ cho biết nhánh hạ tần số nào đã chạy:
+            //   contextSampleRate = 16000 -> trình duyệt tự resample bằng bộ
+            //     lọc chuẩn của nó (đường tốt nhất, mong muốn).
+            //   contextSampleRate = 44100/48000 -> trình duyệt từ chối 16kHz,
+            //     đang chạy nhánh dự phòng biquad + decimator của ta (kém sắc
+            //     hơn, hy sinh một phần dải 6-8kHz).
+            captureInfo.contextSampleRate = graph.nativeRate
+            captureInfo.resampleMode = graph.decimate ? 'fallback-biquad' : 'browser'
+            audioCtx = graph.audioCtx
+            silentSink = graph.silentSink
+            source = graph.source
+            processor = graph.processor
+            filters = graph.filters
+
+            // AudioContext được tạo bên trong callback của WebSocket, tức là đã
+            // ra khỏi ngữ cảnh thao tác người dùng. Đa số trình duyệt vẫn cho
+            // chạy nhờ "sticky activation" của cú bấm trước đó, nhưng cứ resume
+            // cho chắc — context ở trạng thái suspended thì onaudioprocess không
+            // bao giờ chạy và học viên sẽ thấy báo "không nghe thấy tiếng".
+            if (audioCtx.state === 'suspended') {
+                try {
+                    await audioCtx.resume()
+                } catch (e) { /* bỏ qua, thử chạy tiếp */ }
+            }
+            // Lại kiểm tra lần nữa vì resume() là await — phiên có thể đã kết
+            // thúc trong lúc chờ. Lần này graph đã dựng nên tháo bằng cleanupAudio.
+            if (settled) {
+                cleanupAudio()
+                return
+            }
+
+            // Dải sóng dùng CHUNG audio graph này, không mở microphone lần hai.
+            if (typeof onLevel === 'function') {
+                stopMeter = attachLevelMeter(audioCtx, source, onLevel)
+            }
+
             recording = true
             // Mic ĐÃ thật sự thu — báo UI chuyển sang "Đang lắng nghe" từ lúc này,
             // tránh cảnh UI báo nghe trước khi mic sẵn sàng làm mất phần đầu câu.
@@ -220,10 +581,14 @@ export function assessPronunciation(referenceText, { onListening } = {}) {
                 if (s.is_rejected) {
                     const { reason, message } = interpretRejection(s.except_info)
                     finish(resolve, {
+                        ...buildRecording(),
                         rejected: true,
                         rejectReason: reason,
                         rejectMessage: message,
                         spokenText: msg.spokenText || '',
+                        words: [],
+                        focusWord: null,
+                        feedback: '',
                         // Không có điểm hợp lệ khi bị từ chối.
                         pronScore: null,
                         accuracy: null,
@@ -246,6 +611,7 @@ export function assessPronunciation(referenceText, { onListening } = {}) {
                 const pronScore = phone + tone + fluency + integrity // tổng /100
 
                 finish(resolve, {
+                    ...buildRecording(),
                     rejected: false,
                     // 4 tiêu chí quy về /25 (đặt tên khớp thứ tự UI cũ)
                     accuracy: phone, // "Phát âm (âm)" ~ phone_score
@@ -257,6 +623,12 @@ export function assessPronunciation(referenceText, { onListening } = {}) {
                     raw: s,
                     // chi tiết từng chữ: { content, pinyin, issue, ok }
                     chars: msg.chars || [],
+                    // Nhận xét THEO TỪ do máy chủ gom lại (gtc-api/src/lib/wordFeedback.js).
+                    // Điểm số vẫn tính ở client như cũ — phần này chỉ thay cách
+                    // chỉ lỗi: theo từ thay vì theo từng chữ rời.
+                    words: msg.words || [],
+                    focusWord: msg.focusWord || null,
+                    feedback: msg.feedback || '',
                     spokenText: msg.spokenText || '',
                 })
             } else if (msg.type === 'error') {
@@ -275,11 +647,28 @@ export function assessPronunciation(referenceText, { onListening } = {}) {
     })
 
     // Gửi mốc kết thúc để backend bắt đầu chấm (không đóng WS — chờ kết quả).
+    //
+    // Bản cũ gọi cleanupAudio() NGAY rồi mới gửi 'end': block audio đang thu dở
+    // bị vứt, nên phần đuôi câu không bao giờ tới iFLYTEK và chữ cuối hay bị
+    // báo sai. Giờ giữ graph sống thêm TAIL_FLUSH_MS để block cuối chạy nốt
+    // (onaudioprocess gửi đồng bộ), rồi mới tháo và gửi 'end'.
     const stop = () => {
-        cleanupAudio()
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'end' }))
-        }
+        if (settled || flushId) return
+        // Bảo worklet đẩy nốt phần đang gom dở. Với AudioWorkletNode thì đây là
+        // cách duy nhất lấy được mẩu cuối; ScriptProcessorNode không có port nên
+        // bỏ qua, nó đã gửi đồng bộ theo từng block rồi.
+        try {
+            if (processor && processor.port) processor.port.postMessage('stop')
+        } catch (e) { /* bỏ qua */ }
+
+        flushId = setTimeout(() => {
+            flushId = null
+            cleanupAudio()
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                // Gửi kèm thông tin thiết bị để máy chủ lưu vào lịch sử luyện nói.
+                ws.send(JSON.stringify({ type: 'end', capture: captureInfo }))
+            }
+        }, TAIL_FLUSH_MS)
     }
 
     return { result, stop }
