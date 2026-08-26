@@ -1,6 +1,18 @@
 export default function TranslationSection({ videos, onComplete }) {
   return (
     <div>
+      {/* Lời nhắc chép bài — yêu cầu của khách hàng: học viên đọc xong bản dịch
+          thì chép lại bài khóa vào vở để nhớ mặt chữ. Đặt NGOÀI khung cuộn để
+          nó luôn nhìn thấy, không bị trôi mất khi kéo danh sách câu. */}
+      <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 mb-3">
+        <span className="text-amber-600 shrink-0 mt-0.5">
+          <PencilIcon />
+        </span>
+        <p className="text-sm text-amber-800 leading-snug">
+          Hãy chép lại bài khóa vào vở nhé!
+        </p>
+      </div>
+
       <div className="space-y-4 max-h-[28rem] overflow-y-auto pr-1 mb-4">
         {videos.map((video, vIndex) => (
           <div key={vIndex}>
@@ -43,5 +55,24 @@ export default function TranslationSection({ videos, onComplete }) {
         Hoàn thành bài học
       </button>
     </div>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path
+        d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

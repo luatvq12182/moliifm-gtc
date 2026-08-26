@@ -603,23 +603,63 @@ export function assessPronunciation(referenceText, { onListening, onLevel, conte
 
                 // Giữ CÁCH TÍNH CŨ: mỗi tiêu chí quy về 25 điểm rồi cộng lại.
                 // iFLYTEK trả mỗi tiêu chí trên thang 100 -> chia 4 để ra /25.
-                const toQuarter = (v) => (typeof v === 'number' ? Math.round(v / 4) : 0)
-                const phone = toQuarter(s.phone_score)
-                const tone = toQuarter(s.tone_score)
-                const fluency = toQuarter(s.fluency_score)
-                const integrity = toQuarter(s.integrity_score)
-                const pronScore = phone + tone + fluency + integrity // tổng /100
+                // ---------------------------------------------------------
+                // CÁCH TÍNH ĐIỂM CŨ — TẠM TẮT, GIỮ LẠI ĐỂ BẬT LẠI KHI CẦN
+                // ---------------------------------------------------------
+                // Cộng 4 tiêu chí, mỗi tiêu chí quy về /25 rồi lấy tổng /100.
+                // Đây là cách khách hàng đề xuất từ đầu.
+                //
+                // Vì sao tạm tắt: đo trên dữ liệu thật cho thấy nó phân biệt
+                // kém hơn hẳn điểm mà chính iFLYTEK trả về.
+                //
+                //   Bài đọc SAI   -> công thức này 81  |  iFLYTEK 67,5
+                //   Bài đọc ĐƯỢC  -> công thức này 84  |  iFLYTEK 86,2
+                //   Khoảng cách      3 điểm            |  18,7 điểm
+                //
+                // Nguyên nhân: "Đầy đủ" gần như luôn 100 nên cho không 25 điểm,
+                // kéo bài đọc sai lên cao. iFLYTEK cân trọng số khác hẳn.
+                //
+                // const toQuarter = (v) => (typeof v === 'number' ? Math.round(v / 4) : 0)
+                // const phone = toQuarter(s.phone_score)
+                // const tone = toQuarter(s.tone_score)
+                // const fluency = toQuarter(s.fluency_score)
+                // const integrity = toQuarter(s.integrity_score)
+                // const pronScore = phone + tone + fluency + integrity
+                // ---------------------------------------------------------
+
+                // ĐANG DÙNG: điểm tổng do chính iFLYTEK tính, lấy nguyên từ
+                // thuộc tính total_score trong XML. Bốn tiêu chí bên dưới cũng
+                // để nguyên thang /100 như iFLYTEK trả về, không quy đổi nữa —
+                // quy về /25 thì chúng không còn cộng lại thành điểm tổng, nhìn
+                // sẽ khó hiểu.
+                const round = (v) => (typeof v === 'number' ? Math.round(v) : null)
+
+                // Điểm có thể đã bị máy chủ SIẾT TRẦN khi bộ nhận dạng IAT nghe
+                // ra câu khác hẳn câu mẫu — xem gtc-api/src/lib/spokenTextMatch.js.
+                // Ưu tiên dùng điểm máy chủ gửi xuống; không có thì lấy
+                // total_score gốc.
+                const serverScore = msg.score && typeof msg.score.score === 'number'
+                    ? msg.score.score
+                    : round(s.total_score)
 
                 finish(resolve, {
                     ...buildRecording(),
                     rejected: false,
-                    // 4 tiêu chí quy về /25 (đặt tên khớp thứ tự UI cũ)
-                    accuracy: phone, // "Phát âm (âm)" ~ phone_score
-                    prosody: tone, // "Thanh điệu" ~ tone_score
-                    fluency, // "Trôi chảy"
-                    completeness: integrity, // "Đầy đủ"
-                    pronScore,
-                    // điểm gốc iFLYTEK (thang 100) — để dành nếu sau muốn hiển thị thẳng
+                    pronScore: serverScore,
+                    // Thông tin đối chiếu IAT, để giao diện giải thích khi điểm
+                    // bị siết thay vì để học viên tự đoán.
+                    spokenMatch: msg.spokenMatch || null,
+                    cappedFrom: msg.score?.cappedFrom ?? null,
+                    // Có chữ bị nghe ra chữ khác hay không — tách khỏi việc điểm
+                    // có bị hạ hay không. Trần có thể bằng đúng điểm gốc nên
+                    // không hạ được gì, mà học viên vẫn cần biết mình đọc chệch.
+                    spokenMismatch: Boolean(msg.score?.spokenMismatch),
+                    // Bốn tiêu chí, thang /100
+                    accuracy: round(s.phone_score), // "Phát âm"    ~ phone_score
+                    prosody: round(s.tone_score), // "Thanh điệu" ~ tone_score
+                    fluency: round(s.fluency_score), // "Trôi chảy"
+                    completeness: round(s.integrity_score), // "Đầy đủ"
+                    // điểm gốc iFLYTEK, chưa làm tròn
                     raw: s,
                     // chi tiết từng chữ: { content, pinyin, issue, ok }
                     chars: msg.chars || [],
