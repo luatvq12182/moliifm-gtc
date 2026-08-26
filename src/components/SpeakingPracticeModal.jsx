@@ -237,8 +237,10 @@ export default function SpeakingPracticeModal({
               Nút "Câu mẫu" ở khối kết quả chỉ xuất hiện SAU khi đã chấm, nên
               nếu chỉ có nó thì lúc mới mở popup học viên không có cách nào nghe
               mẫu trước khi đọc. */}
-          <p className="text-2xl font-medium mt-1.5 inline-flex items-start justify-center gap-2 flex-wrap">
-            <span>{line.hanzi}</span>
+          {/* Bọc trong div KHỐI: nhãn "LUYỆN NÓI" phía trên là thẻ span inline,
+              nếu để thẻ câu mẫu là inline-flex thì hai thứ bị hút lên cùng dòng. */}
+          <div className="mt-1.5 flex items-start justify-center gap-2 flex-wrap">
+            <p className="text-2xl font-medium">{line.hanzi}</p>
             <button
               onClick={() =>
                 onRequestPlaySegment(
@@ -252,7 +254,7 @@ export default function SpeakingPracticeModal({
             >
               <SpeakerIcon />
             </button>
-          </p>
+          </div>
           {showTranslation && (
             <p className="text-xs text-gray-500 mt-1.5">{line.vi}</p>
           )}
@@ -340,8 +342,22 @@ export default function SpeakingPracticeModal({
                   fluency: existingResult.fluency,
                   completeness: existingResult.completeness,
                 }}
-                spokenText={existingResult.spokenText}
               />
+
+              {/* Câu mà máy nhận dạng nghe được — ĐỂ NGOÀI, không giấu trong
+                  phần thu gọn. Đây là bằng chứng ĐỘC LẬP duy nhất trong toàn bộ
+                  màn hình: bộ chấm điểm biết trước câu mẫu nên luôn cố khớp vào
+                  đó, còn bộ nhận dạng thì không biết gì, nghe sao ghi vậy. Học
+                  viên đối chiếu dòng này với câu mẫu là thấy ngay mình đọc chệch
+                  chỗ nào. */}
+              <div className="mb-3">
+                <p className="text-[11px] text-gray-400 mb-1">
+                  Máy nghe bạn đọc thành:
+                </p>
+                <p className="text-base text-gray-800 bg-white rounded-lg border border-gray-200 px-3 py-2 text-left">
+                  {existingResult.spokenText || "— không nghe rõ —"}
+                </p>
+              </div>
 
               {/* Máy nhận dạng nghe ra chữ khác so với câu mẫu.
                   Hiện MỌI KHI vượt dung sai, không chỉ khi điểm bị hạ: đã có ca
@@ -523,7 +539,7 @@ function bandOf(score) {
 // Bốn tiêu chí để mặc định đóng vì hai lý do: popup đang quá dài, và chúng
 // KHÔNG cộng lại thành điểm tổng (iFLYTEK tính tổng bằng trọng số riêng) nên
 // bày ra cạnh nhau chỉ khiến học viên thắc mắc sao không khớp.
-function ScoreSummary({ score, feedback, parts, spokenText }) {
+function ScoreSummary({ score, feedback, parts }) {
   const [open, setOpen] = useState(false);
   const band = bandOf(score);
 
@@ -561,12 +577,6 @@ function ScoreSummary({ score, feedback, parts, spokenText }) {
             <ScoreTag label="Thanh điệu" value={parts.prosody} max={100} />
             <ScoreTag label="Trôi chảy" value={parts.fluency} max={100} />
             <ScoreTag label="Đầy đủ" value={parts.completeness} max={100} />
-          </div>
-          <div className="mt-2 text-left">
-            <p className="text-[11px] text-gray-400 mb-1">Máy nghe được:</p>
-            <p className="text-sm text-gray-700 bg-white rounded-lg border border-gray-200 px-3 py-2">
-              {spokenText || "— không nghe rõ —"}
-            </p>
           </div>
         </div>
       )}

@@ -19,6 +19,39 @@ function getCtx() {
     return sharedCtx
 }
 
+/**
+ * Đảm bảo AudioContext ĐANG CHẠY trước khi phát.
+ *
+ * VÌ SAO CẦN: rời app rồi quay lại (hoặc khoá màn hình, hoặc có cuộc gọi) thì
+ * trình duyệt di động TREO AudioContext. Bản đầu gọi resume() rồi phát ngay mà
+ * không chờ — resume() là bất đồng bộ, nên lệnh phát rơi vào lúc context còn
+ * chưa chạy lại và không ra tiếng gì, cũng không báo lỗi.
+ *
+ * Ngoài 'suspended', Safari trên iOS còn có trạng thái riêng là 'interrupted'.
+ * Nếu resume không ăn thì dựng context mới — AudioBuffer đã giải mã vẫn dùng
+ * lại được nên không phải giải mã lại từ đầu.
+ */
+async function ensureRunning() {
+    let ctx = getCtx()
+    if (ctx.state === 'running') return ctx
+
+    try {
+        await ctx.resume()
+    } catch (e) { /* thử phương án dựng lại bên dưới */ }
+
+    if (ctx.state === 'running') return ctx
+
+    try {
+        if (ctx.state !== 'closed') await ctx.close().catch(() => { })
+    } catch (e) { /* bỏ qua */ }
+    sharedCtx = null
+    ctx = getCtx()
+    try {
+        await ctx.resume()
+    } catch (e) { /* bỏ qua */ }
+    return ctx
+}
+
 let currentSource = null
 
 export function stopSegment() {
@@ -87,11 +120,12 @@ export function playSegment(
     stopSegment()
     if (typeof onStart === 'function') onStart()
 
-    return decode(blob)
-        .then((buffer) => {
-            const ctx = getCtx()
-            if (ctx.state === 'suspended') ctx.resume().catch(() => { })
-
+    // TUẦN TỰ, không chạy song song: ensureRunning có thể phải ĐÓNG context rồi
+    // dựng lại, mà decodeAudioData lại cần context. Chạy song song thì việc giải
+    // mã có thể rơi đúng vào lúc context bị đóng và thất bại.
+    return ensureRunning()
+        .then((ctx) => decode(blob).then((buffer) => ({ ctx, buffer })))
+        .then(({ ctx, buffer }) => {
             // Chỉ đệm tới sát chữ liền kề, không lấn qua.
             const padBefore = Math.min(
                 MAX_PAD_MS,
