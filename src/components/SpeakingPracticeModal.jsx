@@ -144,9 +144,10 @@ export default function SpeakingPracticeModal({
   // audio cho nó ngay khi kết quả hiện ra, để cú bấm đầu tiên phát tức thì
   // thay vì đứng chờ Azure ~1 giây.
   const focusWordContent = existingResult?.focusWord?.content;
+  const focusWordPinyin = existingResult?.focusWord?.pinyin;
   useEffect(() => {
-    if (focusWordContent) prefetchChinese(focusWordContent);
-  }, [focusWordContent]);
+    if (focusWordContent) prefetchChinese(focusWordContent, focusWordPinyin);
+  }, [focusWordContent, focusWordPinyin]);
 
   if (!open || !line) return null;
 
@@ -403,11 +404,11 @@ export default function SpeakingPracticeModal({
                   âm câu mẫu — xem gtc-api/src/lib/wordFeedback.js. */}
               {existingResult.words?.length > 0 && (
                 <div className="mb-3">
-                  <div className="flex flex-wrap justify-center gap-1.5">
-                    {existingResult.words.map((w, i) => (
-                      <WordChip key={i} word={w} canSpeak={canSpeak} />
-                    ))}
-                  </div>
+                  <WordChipRow
+                    words={existingResult.words}
+                    compounds={existingResult.compounds}
+                    canSpeak={canSpeak}
+                  />
                 </div>
               )}
 
@@ -637,7 +638,11 @@ function CompareRow({ char: c, prevEndMs, nextBegMs, audioBlob, canSpeak }) {
 
   const playModel = () => {
     stopSegment();
+    // Truyền phiên âm iFLYTEK vào để Azure đọc ĐÚNG thanh của chữ này TRONG CÂU
+    // NÀY. Không truyền thì một chữ đứng lẻ được đọc theo thanh từ điển — 你
+    // trong 你好 phải là ní (biến điệu) nhưng máy sẽ đọc nǐ. Xem lib/speak.js.
     speakChinese(c.content, {
+      pinyin: c.pinyin,
       onStart: () => setPlaying("model"),
       onEnd: () => setPlaying(""),
     });
@@ -727,6 +732,103 @@ function SpeakerTinyIcon() {
   );
 }
 
+// Hàng ô chữ, có gộp thêm ô "cả từ" ở những chỗ phiên âm tách rời một từ ghép.
+//
+// YÊU CẦU CỦA KHÁCH: "cho thành 2 chữ riêng xong 1 từ ghép lại đầy đủ".
+// Câu 您好！có phiên âm "Nín hǎo!" — hai token nên bị tách thành hai ô 您 | 好.
+// Học viên cần luyện được từng chữ, NHƯNG cũng phải nghe được 您好 đọc liền,
+// vì đó mới là cách người ta chào. Máy chủ dò từ ghép bằng từ điển và trả về
+// `compounds` — xem gtc-api/src/lib/compoundWords.js.
+function WordChipRow({ words, compounds, canSpeak }) {
+  // Chuyển danh sách vùng thành danh sách phần tử để render tuần tự.
+  const startsAt = new Map();
+  (compounds || []).forEach((c) => startsAt.set(c.start, c));
+
+  const items = [];
+  let i = 0;
+  while (i < words.length) {
+    const compound = startsAt.get(i);
+    // Chốt chặn: vùng vượt quá số ô (dữ liệu cũ, hoặc máy chủ và giao diện lệch
+    // phiên bản) thì bỏ qua việc gộp chứ không cắt bừa mảng.
+    if (compound && i + compound.span <= words.length) {
+      items.push({
+        key: "c" + i,
+        compound,
+        parts: words.slice(i, i + compound.span),
+      });
+      i += compound.span;
+    } else {
+      items.push({ key: "w" + i, word: words[i] });
+      i += 1;
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap justify-center items-center gap-1.5">
+      {items.map((it) =>
+        it.compound ? (
+          <CompoundGroup
+            key={it.key}
+            compound={it.compound}
+            parts={it.parts}
+            canSpeak={canSpeak}
+          />
+        ) : (
+          <WordChip key={it.key} word={it.word} canSpeak={canSpeak} />
+        ),
+      )}
+    </div>
+  );
+}
+
+// Các ô chữ rời của một từ ghép, đóng khung lại, kèm một ô nghe CẢ TỪ.
+function CompoundGroup({ compound, parts, canSpeak }) {
+  const [playing, setPlaying] = useState(false);
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-2xl border border-dashed border-gray-300 bg-gray-50/70 px-1 py-0.5">
+      {parts.map((w, i) => (
+        <WordChip key={i} word={w} canSpeak={canSpeak} />
+      ))}
+
+      {canSpeak && (
+        <button
+          type="button"
+          onClick={() =>
+            speakChinese(compound.content, {
+              pinyin: compound.pinyin,
+              onStart: () => setPlaying(true),
+              onEnd: () => setPlaying(false),
+            })
+          }
+          title={`Nghe cả từ ${compound.content} đọc liền`}
+          // Màu TRUNG TÍNH, cố ý khác hẳn xanh/vàng/đỏ của các ô chữ: ô này để
+          // NGHE chứ không phải kết quả chấm, tô màu theo thang chấm sẽ khiến
+          // học viên tưởng cả từ vừa bị chấm thêm một lần nữa.
+          className={
+            "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-300 bg-white text-slate-700 transition " +
+            (playing
+              ? "ring-2 ring-offset-1 ring-slate-400"
+              : "hover:bg-slate-50")
+          }
+        >
+          <span className="text-base font-medium leading-tight">
+            {compound.content}
+          </span>
+          <span
+            className={
+              "text-[13px] leading-none transition-opacity " +
+              (playing ? "opacity-100" : "opacity-45")
+            }
+          >
+            <SpeakerTinyIcon />
+          </span>
+        </button>
+      )}
+    </span>
+  );
+}
+
 function WordChip({ word, canSpeak }) {
   const [playing, setPlaying] = useState(false);
 
@@ -773,6 +875,7 @@ function WordChip({ word, canSpeak }) {
       type="button"
       onClick={() =>
         speakChinese(word.content, {
+          pinyin: word.pinyin,
           onStart: () => setPlaying(true),
           onEnd: () => setPlaying(false),
         })

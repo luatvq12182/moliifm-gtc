@@ -28,14 +28,17 @@ function toPinyin(text) {
 }
 
 export default function ShortAnswer({ questions, onFinish }) {
+  // Phòng khi thiếu dữ liệu / không phải mảng.
+  const items = Array.isArray(questions) ? questions : [];
+
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState(() =>
-    Array(questions.length).fill(null),
+    Array(items.length).fill(null),
   ); // {value, isCorrect}
   const [value, setValue] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
-  const q = questions[current];
+  const q = items[current];
   const answer = answers[current];
   const checked = answer !== null;
   const allAnswered = answers.every((a) => a !== null);
@@ -45,6 +48,14 @@ export default function ShortAnswer({ questions, onFinish }) {
     setValue(answer ? answer.value : "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
+
+  // Chốt chặn: dạng bài không có câu hỏi nào thì KHÔNG dựng gì cả.
+  // ExerciseSection đã lọc trước nên bình thường không rơi vào đây, nhưng
+  // component này có thể được dùng lại ở chỗ khác — và chính lỗi cũ là đọc
+  // questions[0] của mảng rỗng rồi làm trắng cả trang.
+  // Đặt SAU toàn bộ hook để không phá thứ tự hook của React.
+  if (items.length === 0) return null;
+
 
   const check = () => {
     const isCorrect = q.acceptedAnswers.some(
@@ -62,7 +73,7 @@ export default function ShortAnswer({ questions, onFinish }) {
       (a, i) => i > current && a === null,
     );
     if (nextUnanswered !== -1) setCurrent(nextUnanswered);
-    else if (current < questions.length - 1) setCurrent(current + 1);
+    else if (current < items.length - 1) setCurrent(current + 1);
   };
 
   const finishSection = () => {
@@ -93,7 +104,7 @@ export default function ShortAnswer({ questions, onFinish }) {
   return (
     <div>
       <div className="flex flex-wrap gap-1.5 mb-3">
-        {questions.map((_, i) => {
+        {items.map((_, i) => {
           const a = answers[i];
           return (
             <button
@@ -117,7 +128,7 @@ export default function ShortAnswer({ questions, onFinish }) {
       </div>
 
       <p className="text-xs text-gray-500 mb-2">
-        Câu {current + 1}/{questions.length}
+        Câu {current + 1}/{items.length}
       </p>
       <p className="font-medium mb-1">{q.question}</p>
       <p className="text-xs text-gray-500 mb-3">{q.pinyin}</p>
@@ -186,7 +197,7 @@ export default function ShortAnswer({ questions, onFinish }) {
 
       {submitted && (
         <p className="text-xs text-gray-400 text-center mt-2">
-          Đã hoàn thành {questions.length}/{questions.length} câu — bấm vào số
+          Đã hoàn thành {items.length}/{items.length} câu — bấm vào số
           câu bên trên để xem lại.
         </p>
       )}

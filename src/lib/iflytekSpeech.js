@@ -667,6 +667,10 @@ export function assessPronunciation(referenceText, { onListening, onLevel, conte
                     // Điểm số vẫn tính ở client như cũ — phần này chỉ thay cách
                     // chỉ lỗi: theo từ thay vì theo từng chữ rời.
                     words: msg.words || [],
+                    // Vùng ô chữ vốn là MỘT từ ghép nhưng bị phiên âm bài học
+                    // tách rời (您 | 好 -> 您好), để học viên nghe được cả từ đọc
+                    // liền. Xem gtc-api/src/lib/compoundWords.js.
+                    compounds: msg.compounds || [],
                     focusWord: msg.focusWord || null,
                     feedback: msg.feedback || '',
                     spokenText: msg.spokenText || '',

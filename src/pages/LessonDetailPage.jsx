@@ -69,7 +69,21 @@ export default function LessonDetailPage() {
     );
   }
 
-  const videos = lesson.videos || [];
+  // Mọi mảng con của bài học đều có thể THIẾU: giảng viên bỏ qua phần đó, hoặc
+  // khoá mới dùng cấu trúc khác. Chuẩn hoá một lần ở đây thay vì để từng chỗ
+  // dùng tự đoán — đọc thẳng lesson.vocabulary.length từng làm trắng cả trang.
+  const videos = Array.isArray(lesson.videos) ? lesson.videos : [];
+  const vocabulary = Array.isArray(lesson.vocabulary) ? lesson.vocabulary : [];
+  const exercises = lesson.exercises || {};
+
+  // Đếm số dạng bài THỰC SỰ có câu hỏi, để nhãn không nói "4 dạng bài" trong
+  // khi bài chỉ có 2.
+  const exerciseTypeCount = [
+    "multipleChoice",
+    "trueFalse",
+    "sentenceOrder",
+    "shortAnswer",
+  ].filter((k) => Array.isArray(exercises[k]) && exercises[k].length > 0).length;
   const activeVideo = videos[activeVideoIndex];
   const flatDialogue = flattenLessonDialogue(videos);
 
@@ -153,13 +167,15 @@ export default function LessonDetailPage() {
           <AccordionSection
             stepNumber={1}
             title="Bài tập luyện tập"
-            subtitle="4 dạng bài"
+            subtitle={
+              exerciseTypeCount > 0 ? `${exerciseTypeCount} dạng bài` : "Chưa có"
+            }
             status={statusOf(1)}
             isOpen={openStep === 1}
             onToggle={() => goToStep(1)}
           >
             <ExerciseSection
-              exercises={lesson.exercises}
+              exercises={exercises}
               onComplete={(result) => {
                 setExerciseResult(result);
                 completeStep(1);
@@ -170,13 +186,13 @@ export default function LessonDetailPage() {
           <AccordionSection
             stepNumber={2}
             title="Từ vựng & ngữ pháp mở rộng"
-            subtitle={`${lesson.vocabulary.length} từ`}
+            subtitle={`${vocabulary.length} từ`}
             status={statusOf(2)}
             isOpen={openStep === 2}
             onToggle={() => goToStep(2)}
           >
             <VocabSection
-              vocabulary={lesson.vocabulary}
+              vocabulary={vocabulary}
               // videos={videos}
               // onRequestPlaySegment={requestPlaySegment}
               onComplete={() => completeStep(2)}

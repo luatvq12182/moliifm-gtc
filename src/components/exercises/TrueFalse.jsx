@@ -1,17 +1,28 @@
 import { useState } from "react";
 
 export default function TrueFalse({ questions, onFinish }) {
+  // Phòng khi thiếu dữ liệu / không phải mảng.
+  const items = Array.isArray(questions) ? questions : [];
+
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState(() =>
-    Array(questions.length).fill(null),
+    Array(items.length).fill(null),
   );
   const [submitted, setSubmitted] = useState(false);
 
-  const q = questions[current];
+  // Chốt chặn: dạng bài không có câu hỏi nào thì KHÔNG dựng gì cả.
+  // ExerciseSection đã lọc trước nên bình thường không rơi vào đây, nhưng
+  // component này có thể được dùng lại ở chỗ khác — và chính lỗi cũ là đọc
+  // questions[0] của mảng rỗng rồi làm trắng cả trang.
+  // Đặt SAU toàn bộ hook để không phá thứ tự hook của React.
+  if (items.length === 0) return null;
+
+
+  const q = items[current];
   const answer = answers[current];
   const allAnswered = answers.every((a) => a !== null);
   const correctCount = answers.filter(
-    (a, i) => a && a.value === questions[i].correct,
+    (a, i) => a && a.value === items[i].correct,
   ).length;
 
   const choose = (value) => {
@@ -28,7 +39,7 @@ export default function TrueFalse({ questions, onFinish }) {
       (a, i) => i > current && a === null,
     );
     if (nextUnanswered !== -1) setCurrent(nextUnanswered);
-    else if (current < questions.length - 1) setCurrent(current + 1);
+    else if (current < items.length - 1) setCurrent(current + 1);
   };
 
   const finishSection = () => {
@@ -56,9 +67,9 @@ export default function TrueFalse({ questions, onFinish }) {
   return (
     <div>
       <div className="flex flex-wrap gap-1.5 mb-3">
-        {questions.map((_, i) => {
+        {items.map((_, i) => {
           const a = answers[i];
-          const isCorrect = a && a.value === questions[i].correct;
+          const isCorrect = a && a.value === items[i].correct;
           return (
             <button
               key={i}
@@ -81,7 +92,7 @@ export default function TrueFalse({ questions, onFinish }) {
       </div>
 
       <p className="text-xs text-gray-500 mb-2">
-        Câu {current + 1}/{questions.length}
+        Câu {current + 1}/{items.length}
       </p>
       <p className="font-medium mb-1">{q.statement}</p>
       <p className="text-xs text-gray-500 mb-3">{q.pinyin}</p>
@@ -141,7 +152,7 @@ export default function TrueFalse({ questions, onFinish }) {
 
       {submitted && (
         <p className="text-xs text-gray-400 text-center mt-2">
-          Đã hoàn thành {questions.length}/{questions.length} câu — bấm vào số
+          Đã hoàn thành {items.length}/{items.length} câu — bấm vào số
           câu bên trên để xem lại.
         </p>
       )}
