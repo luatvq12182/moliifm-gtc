@@ -45,6 +45,10 @@ export default function LessonDetailPage() {
   // xong bài tập của video 1 không có nghĩa là xong bài tập của video 2.
   const [progressByVideo, setProgressByVideo] = useState({});
 
+  // Video nào học viên đã từng mở. Chỉ những video này mới được dựng nội dung —
+  // xem ghi chú ở chỗ render bên dưới.
+  const [visited, setVisited] = useState({ 0: true });
+
   const videoRef = useRef(null);
   const pendingSegmentRef = useRef(null);
 
@@ -88,31 +92,63 @@ export default function LessonDetailPage() {
   const videos = Array.isArray(lesson.videos) ? lesson.videos : [];
   const activeVideo = videos[activeVideoIndex];
 
-  // Nội dung DÀNH RIÊNG cho video đang xem (có cơ chế lùi về cấp bài học cho
-  // dữ liệu cũ) — xem lib/lessonVideos.js.
-  const content = resolveVideoContent(lesson, activeVideoIndex);
+  // Nội dung DÀNH RIÊNG cho từng video (có cơ chế lùi về cấp bài học cho dữ
+  // liệu cũ) — xem lib/lessonVideos.js.
+  const contents = videos.map((_, i) => resolveVideoContent(lesson, i));
+  const allDialogue = flattenLessonDialogue(videos);
+  // Giữ nguyên hình dạng mà SpeakingSection trông đợi (videoIndex/localIndex/
+  // videoTitle), chỉ lọc lại theo từng video.
+  const dialogues = videos.map((_, i) =>
+    allDialogue.filter((line) => line.videoIndex === i),
+  );
+
+  const activeContent = contents[activeVideoIndex] || {
+    vocabulary: [],
+    exercises: {},
+  };
   // Đếm số DẠNG bài thực sự có câu hỏi, để nhãn không nói "4 dạng bài" khi
   // video chỉ có 2. Lấy danh sách dạng từ lessonVideos.js — thêm dạng mới cho
   // khoá HSK 3/4 chỉ phải khai báo ở đúng một chỗ.
   const exerciseTypeCount = EXERCISE_TYPES.filter(
-    (k) => Array.isArray(content.exercises[k]) && content.exercises[k].length > 0,
+    (k) =>
+      Array.isArray(activeContent.exercises[k]) &&
+      activeContent.exercises[k].length > 0,
   ).length;
-
-  // Giữ nguyên hình dạng mà SpeakingSection trông đợi (videoIndex/localIndex/
-  // videoTitle), chỉ lọc lại còn đúng video đang xem.
-  const videoDialogue = flattenLessonDialogue(videos).filter(
-    (line) => line.videoIndex === activeVideoIndex,
-  );
 
   const progressOf = (index) => progressByVideo[index] || EMPTY_PROGRESS;
   const current = progressOf(activeVideoIndex);
-  const isVideoDone = (index) => progressOf(index).completedCount >= STEPS_PER_VIDEO;
+  const isVideoDone = (index) =>
+    progressOf(index).completedCount >= STEPS_PER_VIDEO;
 
-  const patchCurrent = (patch) =>
+  const patchVideo = (index, patch) =>
     setProgressByVideo((all) => ({
       ...all,
-      [activeVideoIndex]: { ...progressOf(activeVideoIndex), ...patch },
+      [index]: { ...(all[index] || EMPTY_PROGRESS), ...patch },
     }));
+
+  // Hoàn thành một bước CỦA MỘT VIDEO CỤ THỂ.
+  //
+  // Nhận index chứ không đọc activeVideoIndex: nội dung của mọi video đã ghé
+  // qua đều đang nằm trong DOM, nên phải ghi kết quả về đúng video đã sinh ra
+  // nó. Dùng dạng hàm để không đọc phải state cũ khi hai bước xong sát nhau.
+  const finishStep = (index, step, patch = {}) =>
+    setProgressByVideo((all) => {
+      const before = all[index] || EMPTY_PROGRESS;
+      return {
+        ...all,
+        [index]: {
+          ...before,
+          ...patch,
+          completedCount: Math.max(before.completedCount, step),
+          openStep: step + 1,
+        },
+      };
+    });
+
+  const switchVideo = (index) => {
+    setActiveVideoIndex(index);
+    setVisited((v) => (v[index] ? v : { ...v, [index]: true }));
+  };
 
   const statusOf = (step) => {
     if (step > current.completedCount + 1) return "locked";
@@ -122,14 +158,9 @@ export default function LessonDetailPage() {
   };
 
   const goToStep = (step) => {
-    if (step <= current.completedCount + 1) patchCurrent({ openStep: step });
-  };
-
-  const completeStep = (step) => {
-    patchCurrent({
-      completedCount: Math.max(current.completedCount, step),
-      openStep: step + 1,
-    });
+    if (step <= current.completedCount + 1) {
+      patchVideo(activeVideoIndex, { openStep: step });
+    }
   };
 
   const requestPlaySegment = (videoIndex, start, end) => {
@@ -137,13 +168,14 @@ export default function LessonDetailPage() {
       videoRef.current?.playSegment(start, end);
     } else {
       pendingSegmentRef.current = { start, end };
-      setActiveVideoIndex(videoIndex);
+      switchVideo(videoIndex);
     }
   };
 
   // Bài học xong khi ĐI HẾT MỌI VIDEO. Một huy chương cho cả bài, điểm gộp từ
   // tất cả các video.
-  const lessonFinished = videos.length > 0 && videos.every((_, i) => isVideoDone(i));
+  const lessonFinished =
+    videos.length > 0 && videos.every((_, i) => isVideoDone(i));
   const nextUnfinishedIndex = videos.findIndex((_, i) => !isVideoDone(i));
 
   // Gộp điểm bài tập: cộng dồn số câu đúng và tổng số câu của mọi video, rồi
@@ -152,7 +184,9 @@ export default function LessonDetailPage() {
   const exerciseTotals = videos.reduce(
     (acc, _, i) => {
       const r = progressOf(i).exerciseResult;
-      return r ? { correct: acc.correct + r.correct, total: acc.total + r.total } : acc;
+      return r
+        ? { correct: acc.correct + r.correct, total: acc.total + r.total }
+        : acc;
     },
     { correct: 0, total: 0 },
   );
@@ -166,8 +200,31 @@ export default function LessonDetailPage() {
     .filter((n) => typeof n === "number");
   const pronunciationScore =
     speakingScores.length > 0
-      ? Math.round(speakingScores.reduce((a, b) => a + b, 0) / speakingScores.length)
+      ? Math.round(
+          speakingScores.reduce((a, b) => a + b, 0) / speakingScores.length,
+        )
       : null;
+
+  // Dựng nội dung của MỌI video đã ghé qua, chỉ hiện video đang chọn.
+  //
+  // VÌ SAO KHÔNG DỰNG LẠI MỖI LẦN ĐỔI VIDEO: bốn phần này tự giữ bài làm bên
+  // trong (đáp án đã chọn, câu đã luyện nói, bản ghi âm). Dựng lại là mất sạch,
+  // học viên đang làm dở mà lỡ bấm sang video khác thì phải làm lại từ đầu.
+  //
+  // Ẩn bằng CSS chứ không gỡ khỏi DOM — đúng cách AccordionSection vẫn làm khi
+  // học viên đóng/mở lại một bước.
+  //
+  // Chỉ dựng video ĐÃ GHÉ QUA, không dựng sẵn tất cả: bài có 4 video mà học
+  // viên chỉ xem video 1 thì không việc gì phải dựng 3 bộ nội dung không ai
+  // nhìn tới.
+  const perVideo = (render) =>
+    videos.map((_, i) =>
+      visited[i] ? (
+        <div key={i} className={i === activeVideoIndex ? "" : "hidden"}>
+          {render(i)}
+        </div>
+      ) : null,
+    );
 
   return (
     <div className="min-h-screen">
@@ -185,7 +242,7 @@ export default function LessonDetailPage() {
                 {videos.map((v, i) => (
                   <button
                     key={i}
-                    onClick={() => setActiveVideoIndex(i)}
+                    onClick={() => switchVideo(i)}
                     className={
                       "px-3 py-1.5 text-xs rounded-md border " +
                       (i === activeVideoIndex
@@ -216,42 +273,40 @@ export default function LessonDetailPage() {
         </div>
 
         <div>
-          {/* Bốn phần dưới đây dựng LẠI TỪ ĐẦU mỗi khi đổi video (key =
-              activeVideoIndex). Bắt buộc: chúng tự giữ đáp án bên trong, dùng
-              chung một thể hiện thì đáp án của video này lẫn sang video kia.
-              Đánh đổi đã biết: phần đang làm dở sẽ mất khi chuyển video, nhưng
-              dạng bài đã HOÀN THÀNH thì kết quả được trang này giữ lại. */}
           <AccordionSection
             stepNumber={1}
             title="Bài tập luyện tập"
-            subtitle={exerciseTypeCount > 0 ? `${exerciseTypeCount} dạng bài` : "Chưa có"}
+            subtitle={
+              exerciseTypeCount > 0 ? `${exerciseTypeCount} dạng bài` : "Chưa có"
+            }
             status={statusOf(1)}
             isOpen={current.openStep === 1}
             onToggle={() => goToStep(1)}
           >
-            <ExerciseSection
-              key={activeVideoIndex}
-              exercises={content.exercises}
-              onComplete={(result) => {
-                patchCurrent({ exerciseResult: result });
-                completeStep(1);
-              }}
-            />
+            {perVideo((i) => (
+              <ExerciseSection
+                exercises={contents[i].exercises}
+                onComplete={(result) =>
+                  finishStep(i, 1, { exerciseResult: result })
+                }
+              />
+            ))}
           </AccordionSection>
 
           <AccordionSection
             stepNumber={2}
             title="Từ vựng & ngữ pháp mở rộng"
-            subtitle={`${content.vocabulary.length} từ`}
+            subtitle={`${activeContent.vocabulary.length} từ`}
             status={statusOf(2)}
             isOpen={current.openStep === 2}
             onToggle={() => goToStep(2)}
           >
-            <VocabSection
-              key={activeVideoIndex}
-              vocabulary={content.vocabulary}
-              onComplete={() => completeStep(2)}
-            />
+            {perVideo((i) => (
+              <VocabSection
+                vocabulary={contents[i].vocabulary}
+                onComplete={() => finishStep(i, 2)}
+              />
+            ))}
           </AccordionSection>
 
           <AccordionSection
@@ -262,39 +317,40 @@ export default function LessonDetailPage() {
             isOpen={current.openStep === 3}
             onToggle={() => goToStep(3)}
           >
-            <SpeakingSection
-              key={activeVideoIndex}
-              dialogue={videoDialogue}
-              activeVideoIndex={activeVideoIndex}
-              activeLineIndex={activeLineIndex}
-              lessonContext={{
-                lessonId: lesson._id,
-                lessonTitle: lesson.title,
-                curriculumSlug,
-                courseSlug: courseId,
-                lessonSlug: lessonId,
-              }}
-              onRequestPlaySegment={requestPlaySegment}
-              onComplete={(result) => {
-                patchCurrent({ speakingResult: result });
-                completeStep(3);
-              }}
-            />
+            {perVideo((i) => (
+              <SpeakingSection
+                dialogue={dialogues[i]}
+                activeVideoIndex={activeVideoIndex}
+                activeLineIndex={activeLineIndex}
+                lessonContext={{
+                  lessonId: lesson._id,
+                  lessonTitle: lesson.title,
+                  curriculumSlug,
+                  courseSlug: courseId,
+                  lessonSlug: lessonId,
+                }}
+                onRequestPlaySegment={requestPlaySegment}
+                onComplete={(result) =>
+                  finishStep(i, 3, { speakingResult: result })
+                }
+              />
+            ))}
           </AccordionSection>
 
           <AccordionSection
             stepNumber={4}
             title="Bản dịch tiếng Việt"
-            subtitle={`${videoDialogue.length} câu`}
+            subtitle={`${dialogues[activeVideoIndex]?.length ?? 0} câu`}
             status={statusOf(4)}
             isOpen={current.openStep === 4}
             onToggle={() => goToStep(4)}
           >
-            <TranslationSection
-              key={activeVideoIndex}
-              videos={activeVideo ? [activeVideo] : []}
-              onComplete={() => completeStep(4)}
-            />
+            {perVideo((i) => (
+              <TranslationSection
+                videos={videos[i] ? [videos[i]] : []}
+                onComplete={() => finishStep(i, 4)}
+              />
+            ))}
           </AccordionSection>
 
           {/* Xong video này nhưng bài chưa xong -> chỉ đường sang video tiếp
@@ -307,11 +363,11 @@ export default function LessonDetailPage() {
                 <span className="font-medium">
                   {activeVideo?.title || `video ${activeVideoIndex + 1}`}
                 </span>
-                . Còn {videos.filter((_, i) => !isVideoDone(i)).length} video nữa là
-                hoàn thành bài học.
+                . Còn {videos.filter((_, i) => !isVideoDone(i)).length} video nữa
+                là hoàn thành bài học.
               </p>
               <button
-                onClick={() => setActiveVideoIndex(nextUnfinishedIndex)}
+                onClick={() => switchVideo(nextUnfinishedIndex)}
                 className="px-5 py-2 rounded-lg font-medium bg-primary hover:bg-primary-dark text-gray-900"
               >
                 Sang{" "}
@@ -326,8 +382,12 @@ export default function LessonDetailPage() {
               lessonOrder={lesson.order}
               exerciseScore={exerciseScore}
               pronunciationScore={pronunciationScore}
-              exerciseCorrect={exerciseTotals.total > 0 ? exerciseTotals.correct : undefined}
-              exerciseTotal={exerciseTotals.total > 0 ? exerciseTotals.total : undefined}
+              exerciseCorrect={
+                exerciseTotals.total > 0 ? exerciseTotals.correct : undefined
+              }
+              exerciseTotal={
+                exerciseTotals.total > 0 ? exerciseTotals.total : undefined
+              }
               onBackToList={() => navigate(backToLessonsLink)}
             />
           )}

@@ -18,6 +18,11 @@ export default function AccordionSection({
   // DOM mãi mãi (chỉ ẩn/hiện bằng CSS khi đóng/mở lại) thay vì unmount rồi
   // mount lại — nhờ vậy toàn bộ state bên trong (câu đã làm, đáp án đã chọn,
   // kết quả...) không bị mất khi học viên đóng rồi mở lại section này.
+  //
+  // KỂ CẢ KHI BỊ KHOÁ. Bài học nhiều video dựng sẵn nội dung của mọi video đã
+  // ghé qua rồi ẩn đi (xem LessonDetailPage). Nếu khoá mà unmount thì chuyển
+  // sang một video chưa làm tới bước này là bài đã làm của TẤT CẢ video khác
+  // trong bước đó bay sạch. Khoá thì chỉ cần ẩn và chặn bấm là đủ.
   const [everOpened, setEverOpened] = useState(isOpen);
 
   useEffect(() => {
@@ -50,8 +55,10 @@ export default function AccordionSection({
         {subtitle && <span className="text-xs text-gray-500">{subtitle}</span>}
       </button>
 
-      {everOpened && !locked && (
-        <div className={"p-4" + (isOpen ? "" : " hidden")}>{children}</div>
+      {everOpened && (
+        <div className={"p-4" + (isOpen && !locked ? "" : " hidden")}>
+          {children}
+        </div>
       )}
     </div>
   );
