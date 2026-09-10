@@ -6,6 +6,7 @@ import {
   Link,
 } from "react-router-dom";
 import { slugify } from "../../lib/slugify.js";
+import { countExercises } from "../../lib/lessonVideos.js";
 import {
   useLessonQuery,
   useCreateLesson,
@@ -134,6 +135,12 @@ export default function AdminLessonEditPage() {
 
   const submitting = isEdit ? updateLesson.isPending : createLesson.isPending;
 
+  // Bài còn nội dung ở chỗ cũ (cấp bài học) hay không. Bài mới luôn là false
+  // nên giảng viên chỉ thấy một chỗ nhập duy nhất: trong từng video.
+  const legacyExerciseCount = countExercises(lesson.exercises);
+  const hasLegacyContent =
+    lesson.vocabulary.length > 0 || legacyExerciseCount > 0;
+
   return (
     <div className="max-w-3xl">
       <div className="mb-5">
@@ -239,27 +246,48 @@ export default function AdminLessonEditPage() {
         />
       </Section>
 
-      <Section
-        title="Từ vựng & ngữ pháp mở rộng"
-        subtitle={`${lesson.vocabulary.length} mục`}
-        defaultOpen={false}
-      >
-        <VocabularyEditor
-          vocabulary={lesson.vocabulary}
-          onChange={(vocabulary) => setLesson((l) => ({ ...l, vocabulary }))}
-        />
-      </Section>
+      {/* NỘI DUNG CŨ Ở CẤP BÀI HỌC.
+          Từ vựng và bài tập nay thuộc về TỪNG VIDEO (soạn ngay trong khối
+          "Video & hội thoại" ở trên), vì khách hàng soạn một file docx cho mỗi
+          video và học viên chỉ xem nội dung của video đang mở.
 
-      <Section
-        title="Bài tập luyện tập"
-        subtitle="4 dạng bài"
-        defaultOpen={false}
-      >
-        <ExercisesEditor
-          exercises={lesson.exercises}
-          onChange={(exercises) => setLesson((l) => ({ ...l, exercises }))}
-        />
-      </Section>
+          Hai mục dưới đây chỉ hiện khi bài CÒN dữ liệu ở chỗ cũ, để giảng viên
+          dời nốt sang video rồi thôi. Bài mới sẽ không bao giờ thấy chúng. */}
+      {hasLegacyContent && (
+        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 mb-4">
+          <p className="text-sm font-bold text-amber-900 mb-1">
+            Nội dung cũ, chưa gắn vào video nào
+          </p>
+          <p className="text-xs text-amber-800 mb-3">
+            Phần này được soạn từ hồi từ vựng và bài tập còn dùng chung cho cả
+            bài. Học viên vẫn thấy bình thường, nhưng hãy chuyển dần sang từng
+            video để mỗi video chỉ hiện nội dung của riêng nó. Chuyển xong thì
+            xoá hết ở đây, mục này sẽ tự ẩn.
+          </p>
+
+          <Section
+            title="Từ vựng (cũ, dùng chung cả bài)"
+            subtitle={`${lesson.vocabulary.length} mục`}
+            defaultOpen={false}
+          >
+            <VocabularyEditor
+              vocabulary={lesson.vocabulary}
+              onChange={(vocabulary) => setLesson((l) => ({ ...l, vocabulary }))}
+            />
+          </Section>
+
+          <Section
+            title="Bài tập (cũ, dùng chung cả bài)"
+            subtitle={`${legacyExerciseCount} câu`}
+            defaultOpen={false}
+          >
+            <ExercisesEditor
+              exercises={lesson.exercises}
+              onChange={(exercises) => setLesson((l) => ({ ...l, exercises }))}
+            />
+          </Section>
+        </div>
+      )}
 
       {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
 

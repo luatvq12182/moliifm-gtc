@@ -1,8 +1,22 @@
+import { useState } from "react";
 import ListEditor from "./ListEditor.jsx";
 import DialogueEditor from "./DialogueEditor.jsx";
+import VocabularyEditor from "./VocabularyEditor.jsx";
+import ExercisesEditor from "./ExercisesEditor.jsx";
 import VideoUploadField from "../VideoUploadField.jsx";
 import { extractYoutubeId } from "../../../lib/youtube.js";
+import { countExercises } from "../../../lib/lessonVideos.js";
 
+const EMPTY_EXERCISES = () => ({
+  multipleChoice: [],
+  trueFalse: [],
+  sentenceOrder: [],
+  shortAnswer: [],
+});
+
+// Mỗi video là một khối nội dung khép kín, khớp một-một với một file docx mà
+// giảng viên soạn: lời thoại, từ vựng, bài tập của đúng video đó. Học viên xem
+// video nào thì chỉ thấy nội dung của video ấy.
 const NEW_VIDEO = () => ({
   title: "",
   description: "",
@@ -10,6 +24,8 @@ const NEW_VIDEO = () => ({
   videoUrl: "",
   youtubeId: "",
   dialogue: [],
+  vocabulary: [],
+  exercises: EMPTY_EXERCISES(),
 });
 
 export default function VideosEditor({ videos, onChange }) {
@@ -90,17 +106,60 @@ export default function VideosEditor({ videos, onChange }) {
             />
           )}
 
-          <div className="border-t border-gray-200 pt-3">
-            <p className="text-xs text-gray-500 mb-2">
-              Hội thoại trong video này:
-            </p>
+          {/* Ba khối nội dung của riêng video này. Gấp lại mặc định để danh
+              sách video còn nhìn được — mở một video ra soạn thì bung khối cần
+              soạn, không phải cuộn qua 300 dòng bài tập của video khác. */}
+          <SubBlock
+            label="Hội thoại"
+            count={`${(video.dialogue || []).length} câu`}
+          >
             <DialogueEditor
-              dialogue={video.dialogue}
+              dialogue={video.dialogue || []}
               onChange={(dialogue) => update({ dialogue })}
             />
-          </div>
+          </SubBlock>
+
+          <SubBlock
+            label="Từ vựng & ngữ pháp mở rộng"
+            count={`${(video.vocabulary || []).length} mục`}
+          >
+            <VocabularyEditor
+              vocabulary={video.vocabulary || []}
+              onChange={(vocabulary) => update({ vocabulary })}
+            />
+          </SubBlock>
+
+          <SubBlock
+            label="Bài tập luyện tập"
+            count={`${countExercises(video.exercises)} câu`}
+          >
+            <ExercisesEditor
+              exercises={video.exercises || EMPTY_EXERCISES()}
+              onChange={(exercises) => update({ exercises })}
+            />
+          </SubBlock>
         </div>
       )}
     />
+  );
+}
+
+// Khối gấp/mở bên trong một video.
+function SubBlock({ label, count, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-t border-gray-200 pt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between text-left mb-2"
+      >
+        <span className="text-xs font-semibold text-gray-700">
+          {open ? "▾" : "▸"} {label}
+        </span>
+        <span className="text-[11px] text-gray-400">{count}</span>
+      </button>
+      {open && children}
+    </div>
   );
 }
