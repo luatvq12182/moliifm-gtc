@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import ListEditor from "./ListEditor.jsx";
+import { toSpeakableText, HAS_HAN } from "../../../lib/numericText.js";
 
 const NEW_LINE = () => ({
   speaker: "",
@@ -121,6 +122,8 @@ export default function DialogueEditor({ dialogue, onChange }) {
                   placeholder="Pinyin"
                   className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
                 />
+                <NoHanziNotice hanzi={line.hanzi} pinyin={line.pinyin} />
+
                 <input
                   type="text"
                   value={line.vi}
@@ -134,6 +137,46 @@ export default function DialogueEditor({ dialogue, onChange }) {
         );
       }}
     />
+  );
+}
+
+/**
+ * Báo cho giảng viên biết dòng thoại này sẽ được gửi đi chấm dưới dạng nào.
+ *
+ * VÌ SAO CÓ: iFLYTEK từ chối câu mẫu KHÔNG CÓ CHỮ HÁN nào. Dòng "2038559800。"
+ * của Bài 4 vì thế chết ở mọi lượt luyện nói. Máy chủ nay tự đổi sang số Hán,
+ * nhưng cách đọc số thì phụ thuộc ngữ cảnh — 800 là 八百 chứ không phải 八零零,
+ * 215 (số phòng) là 二幺五 chứ không phải 二一五. Chỉ người soạn bài mới biết
+ * chắc, và họ đã ghi sẵn trong ô Pinyin.
+ *
+ * ĐÂY LÀ XEM TRƯỚC, KHÔNG PHẢI BẮT LỖI. Dòng thoại đọc số điện thoại là nội
+ * dung hợp lệ; chặn lại là ép giảng viên bóp méo bài học cho vừa ý máy. Vẫn lưu
+ * bình thường.
+ */
+function NoHanziNotice({ hanzi, pinyin }) {
+  const text = (hanzi || "").trim();
+  // Im lặng ở trường hợp thường gặp: chưa nhập gì, hoặc đã có chữ Hán.
+  if (!text || HAS_HAN.test(text)) return null;
+
+  const result = toSpeakableText(text, pinyin);
+
+  if (!result.text) {
+    return (
+      <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">
+        Dòng này không có chữ Hán lẫn chữ số nên <strong>không chấm phát âm
+        được</strong>. Học viên sẽ thấy báo lỗi khi luyện nói câu này.
+      </p>
+    );
+  }
+
+  return (
+    <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
+      Dòng này không có chữ Hán. Khi chấm phát âm, máy sẽ đọc là{" "}
+      <strong className="text-sm">{result.text}</strong>
+      {result.source === "pinyin"
+        ? " (theo ô Pinyin ở trên)."
+        : " — đọc rời từng chữ số, vì ô Pinyin chưa cho biết cách đọc. Nếu phải đọc khác (vd. 800 là 八百), hãy điền Pinyin."}
+    </p>
   );
 }
 
