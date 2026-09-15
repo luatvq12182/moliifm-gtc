@@ -79,6 +79,33 @@ async function apiUpload(path, file, fieldName = 'image') {
 // Tải file nhị phân (hiện dùng cho bản ghi âm luyện nói).
 // KHÔNG dùng thẳng <audio src="..."> được, vì thẻ audio không gắn được header
 // Authorization. Phải fetch kèm token rồi biến thành object URL.
+// Gửi file lên và NHẬN VỀ FILE (không phải JSON).
+//
+// Dùng cho việc nhập học viên hàng loạt: đẩy danh sách lên, nhận lại bảng tính
+// có thêm cột mật khẩu. apiUpload không dùng được vì nó luôn parse JSON, còn
+// apiBlob thì chỉ biết GET.
+async function apiUploadBlob(path, file, fieldName = 'file') {
+    const token = getToken(path)
+    const formData = new FormData()
+    formData.append(fieldName, file)
+
+    const res = await fetch(`${API_URL}${path}`, {
+        method: 'POST',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: formData,
+    })
+
+    if (!res.ok) {
+        // Lỗi thì máy chủ trả JSON chứ không trả file.
+        const data = await res.json().catch(() => null)
+        const err = new Error(data?.message || `Lỗi ${res.status}`)
+        err.status = res.status
+        throw err
+    }
+
+    return res.blob()
+}
+
 async function apiBlob(path) {
     const token = getToken(path)
     const res = await fetch(`${API_URL}${path}`, {
@@ -100,5 +127,6 @@ export const api = {
     patch: (path, body) => apiFetch(path, { method: 'PATCH', body }),
     del: (path) => apiFetch(path, { method: 'DELETE' }),
     upload: (path, file, fieldName) => apiUpload(path, file, fieldName),
+    uploadBlob: (path, file, fieldName) => apiUploadBlob(path, file, fieldName),
     blob: (path) => apiBlob(path),
 }

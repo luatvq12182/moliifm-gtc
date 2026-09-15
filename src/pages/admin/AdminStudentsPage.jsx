@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useStudentsQuery,
   useToggleStudentStatus,
@@ -10,6 +11,7 @@ import {
 } from "../../hooks/useStudents.js";
 import StudentFormModal from "../../components/admin/StudentFormModal.jsx";
 import CredentialModal from "../../components/admin/CredentialModal.jsx";
+import StudentImportModal from "../../components/admin/StudentImportModal.jsx";
 import PracticeHistoryModal from "../../components/admin/PracticeHistoryModal.jsx";
 import { useAppConfigQuery } from "../../hooks/useAppConfig.js";
 
@@ -27,6 +29,9 @@ export default function AdminStudentsPage() {
   const [editingStudent, setEditingStudent] = useState(null);
   const [credential, setCredential] = useState(null); // { name, tempPassword } | null
   const [historyStudent, setHistoryStudent] = useState(null); // học viên đang xem lịch sử luyện nói
+  const [importOpen, setImportOpen] = useState(false);
+
+  const queryClient = useQueryClient();
 
   // Mục "Lịch sử luyện nói" chỉ tồn tại khi máy chủ bật PRACTICE_HISTORY_ENABLED.
   // Khi sản phẩm ra thị trường thì tắt cờ ở backend, nút này tự biến mất — không
@@ -149,12 +154,20 @@ export default function AdminStudentsPage() {
             {students.length} học viên đã đăng ký
           </p>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0"
-        >
-          + Thêm học viên
-        </button>
+        <div className="flex gap-2 shrink-0">
+          <button
+            onClick={() => setImportOpen(true)}
+            className="border border-gray-300 hover:bg-gray-50 text-sm font-medium px-4 py-2 rounded-lg"
+          >
+            Nhập từ file
+          </button>
+          <button
+            onClick={openCreateModal}
+            className="bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white text-sm font-medium px-4 py-2 rounded-lg"
+          >
+            + Thêm học viên
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
@@ -499,6 +512,14 @@ export default function AdminStudentsPage() {
 
       )}
 
+
+      <StudentImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        // Nhập xong thì làm mới danh sách để mấy trăm học viên mới hiện ra ngay,
+        // không phải tải lại trang.
+        onDone={() => queryClient.invalidateQueries({ queryKey: ["students"] })}
+      />
 
       <CredentialModal
         open={Boolean(credential)}
