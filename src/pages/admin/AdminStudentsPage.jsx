@@ -16,6 +16,12 @@ import PracticeHistoryModal from "../../components/admin/PracticeHistoryModal.js
 import { useAppConfigQuery } from "../../hooks/useAppConfig.js";
 import { formatPhone } from "../../lib/phone.js";
 
+const STATUS_FILTERS = [
+  { value: "", label: "Tất cả" },
+  { value: "active", label: "Đang hoạt động" },
+  { value: "locked", label: "Đã khóa" },
+];
+
 function formatJoinedDate(createdAt) {
   return new Date(createdAt).toLocaleDateString("vi-VN");
 }
@@ -23,6 +29,7 @@ function formatJoinedDate(createdAt) {
 export default function AdminStudentsPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [status, setStatus] = useState(""); // "" | "active" | "locked"
   const [page, setPage] = useState(1);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -42,6 +49,7 @@ export default function AdminStudentsPage() {
 
   const { data, isLoading, isError, error } = useStudentsQuery({
     search: debouncedSearch,
+    status,
     page,
   });
   const students = data?.data || [];
@@ -152,7 +160,13 @@ export default function AdminStudentsPage() {
             Tài khoản học viên
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {students.length} học viên đã đăng ký
+            {/* Khi đang lọc thì con số này là KẾT QUẢ LỌC, không phải tổng số
+                học viên — phải nói rõ, kẻo giáo viên tưởng trung tâm chỉ còn
+                mấy người. */}
+            {pagination.total ?? students.length}{" "}
+            {debouncedSearch || status
+              ? "học viên khớp bộ lọc"
+              : "học viên đã đăng ký"}
           </p>
         </div>
         <div className="flex gap-2 shrink-0">
@@ -172,7 +186,7 @@ export default function AdminStudentsPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-        <div className="p-4 border-b border-gray-100">
+        <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center gap-3">
           <input
             type="text"
             value={search}
@@ -180,6 +194,43 @@ export default function AdminStudentsPage() {
             placeholder="Tìm theo tên, số điện thoại hoặc email..."
             className="w-full sm:w-72 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
+
+          {/* Ba nút thay vì ô chọn xổ xuống: chỉ có ba lựa chọn, và giáo viên
+              nhìn là biết ngay đang lọc gì mà không phải mở ra xem. */}
+          <div className="inline-flex p-0.5 bg-gray-100 rounded-lg self-start">
+            {STATUS_FILTERS.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                onClick={() => {
+                  setStatus(f.value);
+                  setPage(1); // đổi bộ lọc thì về trang 1, kẻo đang ở trang 5 mà kết quả mới chỉ có 2 trang
+                }}
+                className={
+                  "px-3.5 py-1.5 text-xs rounded-md transition whitespace-nowrap " +
+                  (status === f.value
+                    ? "bg-white shadow-sm font-medium text-gray-900"
+                    : "text-gray-500 hover:text-gray-700")
+                }
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {(debouncedSearch || status) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setStatus("");
+                setPage(1);
+              }}
+              className="text-xs text-gray-500 underline hover:text-gray-700 self-start sm:ml-auto"
+            >
+              Xóa bộ lọc
+            </button>
+          )}
         </div>
 
         {isLoading && (
