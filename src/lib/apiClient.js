@@ -31,7 +31,20 @@ async function apiFetch(path, options = {}) {
         // 401 = token hết hạn / không hợp lệ / bị vô hiệu. Tự đăng xuất + đẩy về
         // trang login thay vì để người dùng mắc kẹt ở màn hình lỗi. Xóa đúng
         // loại session (admin hay học viên) tùy request thuộc phạm vi nào.
-        if (res.status === 401) {
+        // TÀI KHOẢN BỊ KHOÁ CŨNG PHẢI KẾT THÚC PHIÊN, không chỉ token hết hạn.
+        //
+        // Trước đây chỉ bắt 401. Admin khoá một học viên đang đăng nhập thì máy
+        // chủ bắt đầu trả 403 — nhưng giao diện coi đó là lỗi thường: không xoá
+        // phiên, không chuyển hướng. Học viên vẫn ở trong ứng dụng và dùng tiếp
+        // được mọi trang đã tải sẵn trong bộ nhớ. Khoá tài khoản gần như không
+        // có tác dụng cho tới khi họ tự đăng xuất.
+        //
+        // Nhận diện bằng MÃ của máy chủ, không phải bằng mã trạng thái 403 nói
+        // chung: 403 còn dùng cho lỗi giới hạn thiết bị lúc đăng nhập, đá người
+        // ta ra ở ca đó là sai.
+        const accountLocked = res.status === 403 && data?.code === 'ACCOUNT_LOCKED'
+
+        if (res.status === 401 || accountLocked) {
             if (isAdminScope(path)) {
                 localStorage.removeItem('admin_token')
                 localStorage.removeItem('admin_info')
@@ -39,7 +52,22 @@ async function apiFetch(path, options = {}) {
                 localStorage.removeItem('student_token')
                 localStorage.removeItem('student_info')
             }
-            // Chỉ chuyển hướng nếu đang không ở sẵn trang login (tránh vòng lặp)
+
+            // Nói rõ vì sao bị đăng xuất. Không có dòng này thì học viên bị đẩy
+            // về trang login trắng trơn giữa chừng và tưởng hệ thống lỗi.
+            // sessionStorage vì ngay sau đây là một lần tải lại trang.
+            if (accountLocked) {
+                try {
+                    sessionStorage.setItem('logout_reason', data?.message || '')
+                } catch {
+                    // Chế độ ẩn danh có thể chặn — mất lời nhắn thì vẫn phải đăng xuất.
+                }
+            }
+
+            // Chỉ chuyển hướng nếu đang không ở sẵn trang login (tránh vòng lặp).
+            // Dùng location.href (tải lại cả trang) chứ không phải điều hướng
+            // trong ứng dụng: nó xoá sạch bộ nhớ đệm React Query, nếu không thì
+            // bài học đã tải vẫn xem được dù đã đăng xuất.
             if (window.location.pathname !== '/login') {
                 window.location.href = '/login'
             }

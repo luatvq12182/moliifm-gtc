@@ -6,6 +6,18 @@ import { useStudentLogin } from "../hooks/useStudentAuth.js";
 export default function LoginPage() {
   const navigate = useNavigate();
   const [identifier, setIdentifier] = useState("");
+  // Lý do bị đăng xuất giữa chừng (vd. admin vừa khoá tài khoản). apiClient ghi
+  // vào sessionStorage ngay trước khi tải lại trang — đọc một lần rồi xoá, kẻo
+  // lần đăng nhập sau vẫn thấy lời nhắn cũ.
+  const [logoutReason] = useState(() => {
+    try {
+      const reason = sessionStorage.getItem("logout_reason");
+      if (reason) sessionStorage.removeItem("logout_reason");
+      return reason || "";
+    } catch {
+      return "";
+    }
+  });
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
@@ -66,6 +78,12 @@ export default function LoginPage() {
             <img className="h-16" src="/images/logo-moliifm.webp" alt="Logo MoliiFM" />
           </div>
         </div>
+
+        {logoutReason && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+            <p className="text-sm text-amber-800 leading-snug">{logoutReason}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>

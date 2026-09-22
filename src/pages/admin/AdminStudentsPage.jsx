@@ -8,10 +8,13 @@ import {
   useResetStudentPassword,
   useUpdateStudent,
   useResetStudentDevices,
+  STUDENTS_KEY,
 } from "../../hooks/useStudents.js";
 import StudentFormModal from "../../components/admin/StudentFormModal.jsx";
 import CredentialModal from "../../components/admin/CredentialModal.jsx";
 import StudentImportModal from "../../components/admin/StudentImportModal.jsx";
+import { useToasts, ToastStack } from "../../components/admin/Toast.jsx";
+import { useConfirm } from "../../components/admin/ConfirmDialog.jsx";
 import PracticeHistoryModal from "../../components/admin/PracticeHistoryModal.jsx";
 import { useAppConfigQuery } from "../../hooks/useAppConfig.js";
 import { formatPhone } from "../../lib/phone.js";
@@ -40,6 +43,8 @@ export default function AdminStudentsPage() {
   const [importOpen, setImportOpen] = useState(false);
 
   const queryClient = useQueryClient();
+  const toast = useToasts();
+  const { confirm, dialog } = useConfirm();
 
   // Mục "Lịch sử luyện nói" chỉ tồn tại khi máy chủ bật PRACTICE_HISTORY_ENABLED.
   // Khi sản phẩm ra thị trường thì tắt cờ ở backend, nút này tự biến mất — không
@@ -72,26 +77,74 @@ export default function AdminStudentsPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const handleToggleStatus = (student) => {
+  // Dòng nào đang có thao tác chạy dở.
+  //
+  // VÌ SAO CẦN: các nút này gọi thẳng API rồi mới có kết quả. Bấm "Khóa" hai
+  // lần liên tiếp là gửi HAI lệnh đảo trạng thái — khóa rồi mở lại — và giáo
+  // viên tưởng mình đã khóa xong. Không có thông báo nào bắt được lỗi đó vì
+  // cả hai lệnh đều thành công.
+  //
+  // React Query giữ tham số của lần gọi đang chạy trong `.variables`, nhờ đó
+  // biết được đang bận ở ĐÚNG dòng nào thay vì khóa cả bảng.
+  const busyStudentId =
+    (toggleStatus.isPending && toggleStatus.variables) ||
+    (resetPassword.isPending && resetPassword.variables) ||
+    (resetDevices.isPending && resetDevices.variables?.id) ||
+    null;
+
+  const handleToggleStatus = async (student) => {
+    const locking = student.status === "active";
+
+    // Hỏi lại cả hai chiều. Khoá thì cắt quyền đăng nhập của một người đang
+    // học; mở khoá thì trả lại quyền cho người bị khoá vì một lý do nào đó.
+    // Cả hai đều không nên xảy ra vì lỡ tay bấm nhầm dòng — bảng này các nút
+    // nằm sát nhau.
+    const ok = await confirm({
+      title: locking ? "Khóa tài khoản?" : "Mở khóa tài khoản?",
+      message: locking
+        ? `"${student.name}" sẽ không đăng nhập được nữa cho tới khi bạn mở khóa lại.`
+        : `"${student.name}" sẽ đăng nhập lại được bình thường.`,
+      confirmLabel: locking ? "Khóa tài khoản" : "Mở khóa",
+      tone: locking ? "danger" : "normal",
+    });
+    if (!ok) return;
+
     toggleStatus.mutate(student._id, {
-      onError: (err) => alert(err.message),
+      onSuccess: () =>
+        toast.success(
+          locking
+            ? `Đã khóa tài khoản của ${student.name}.`
+            : `Đã mở khóa tài khoản của ${student.name}.`,
+        ),
+      onError: (err) => toast.error(err.message),
     });
   };
 
-  const handleResetDevices = (student, target) => {
+  const handleResetDevices = async (student, target) => {
     const targetLabel =
       target === "desktop"
         ? "máy tính"
         : target === "mobile"
           ? "điện thoại"
           : "cả 2 thiết bị";
-    if (
-      !confirm(
-        `Reset ${targetLabel} của học viên "${student.name}"? Học viên sẽ đăng nhập lại được từ thiết bị mới.`,
-      )
-    )
-      return;
-    resetDevices.mutate({ id: student._id, target });
+
+    const ok = await confirm({
+      title: `Reset ${targetLabel}?`,
+      message: `Thiết bị đã đăng ký của "${student.name}" sẽ bị gỡ. Học viên đăng nhập lại được từ một ${targetLabel === "cả 2 thiết bị" ? "thiết bị" : targetLabel} khác.`,
+      confirmLabel: "Reset thiết bị",
+    });
+    if (!ok) return;
+
+    // TRƯỚC ĐÂY KHÔNG CÓ onError: thao tác hỏng thì không báo gì, giáo viên
+    // tưởng đã reset xong rồi bảo học viên đăng nhập — và học viên vẫn bị chặn.
+    resetDevices.mutate(
+      { id: student._id, target },
+      {
+        onSuccess: () =>
+          toast.success(`Đã reset ${targetLabel} của ${student.name}.`),
+        onError: (err) => toast.error(err.message),
+      },
+    );
   };
 
   // const handleDelete = (student) => {
@@ -106,19 +159,22 @@ export default function AdminStudentsPage() {
   //   });
   // };
 
-  const handleResetPassword = (student) => {
-    if (
-      !confirm(
-        `Đặt lại mật khẩu cho "${student.name}"? Mật khẩu cũ sẽ không còn dùng được.`,
-      )
-    )
-      return;
+  const handleResetPassword = async (student) => {
+    const ok = await confirm({
+      title: "Đặt lại mật khẩu?",
+      message: `Mật khẩu hiện tại của "${student.name}" sẽ không dùng được nữa. Bạn sẽ nhận mật khẩu mới để gửi cho học viên.`,
+      confirmLabel: "Đặt lại mật khẩu",
+      tone: "danger",
+    });
+    if (!ok) return;
 
     resetPassword.mutate(student._id, {
+      // Không báo toast ở đây: hộp thoại hiện mật khẩu mới đã là lời xác nhận
+      // rõ ràng nhất, thêm một thẻ nổi nữa là thừa.
       onSuccess: ({ tempPassword }) => {
         setCredential({ name: student.name, tempPassword });
       },
-      onError: (err) => alert(err.message),
+      onError: (err) => toast.error(err.message),
     });
   };
 
@@ -139,7 +195,12 @@ export default function AdminStudentsPage() {
       updateStudent.mutate(
         { id: editingStudent._id, payload: formData },
         {
-          onSuccess: () => setModalOpen(false),
+          onSuccess: () => {
+            setModalOpen(false);
+            toast.success(`Đã cập nhật thông tin của ${formData.name}.`);
+          },
+          // Lỗi để nguyên trong modal (qua apiError) chứ không đóng modal rồi
+          // mới báo — người dùng cần thấy lỗi ngay cạnh ô mình vừa nhập.
         },
       );
     } else {
@@ -348,7 +409,14 @@ export default function AdminStudentsPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right space-x-1 whitespace-nowrap">
+                    <td
+                      className={
+                        "px-4 py-3 text-right space-x-1 whitespace-nowrap transition " +
+                        (busyStudentId === s._id
+                          ? "opacity-40 pointer-events-none"
+                          : "")
+                      }
+                    >
                       <button
                         onClick={() => openEditModal(s)}
                         className="text-xs text-primary-dark hover:underline"
@@ -475,7 +543,12 @@ export default function AdminStudentsPage() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-3 text-xs pt-3 border-t border-gray-50">
+                <div
+                  className={
+                    "flex items-center gap-3 text-xs pt-3 border-t border-gray-50 transition " +
+                    (busyStudentId === s._id ? "opacity-40 pointer-events-none" : "")
+                  }
+                >
                   <button
                     onClick={() => openEditModal(s)}
                     className="text-primary-dark font-medium"
@@ -569,12 +642,17 @@ export default function AdminStudentsPage() {
       )}
 
 
+      {/* Hộp thoại xác nhận và các thẻ báo kết quả. Đặt cuối cùng để nổi trên
+          mọi modal khác — báo lỗi mà bị modal che thì vô nghĩa. */}
+      {dialog}
+      <ToastStack toasts={toast.items} onDismiss={toast.dismiss} />
+
       <StudentImportModal
         open={importOpen}
         onClose={() => setImportOpen(false)}
         // Nhập xong thì làm mới danh sách để mấy trăm học viên mới hiện ra ngay,
         // không phải tải lại trang.
-        onDone={() => queryClient.invalidateQueries({ queryKey: ["students"] })}
+        onDone={() => queryClient.invalidateQueries({ queryKey: STUDENTS_KEY })}
       />
 
       <CredentialModal
