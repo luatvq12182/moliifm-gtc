@@ -14,6 +14,7 @@ import CredentialModal from "../../components/admin/CredentialModal.jsx";
 import StudentImportModal from "../../components/admin/StudentImportModal.jsx";
 import PracticeHistoryModal from "../../components/admin/PracticeHistoryModal.jsx";
 import { useAppConfigQuery } from "../../hooks/useAppConfig.js";
+import { formatPhone } from "../../lib/phone.js";
 
 function formatJoinedDate(createdAt) {
   return new Date(createdAt).toLocaleDateString("vi-VN");
@@ -176,7 +177,7 @@ export default function AdminStudentsPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo tên hoặc email..."
+            placeholder="Tìm theo tên, số điện thoại hoặc email..."
             className="w-full sm:w-72 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
@@ -218,14 +219,16 @@ export default function AdminStudentsPage() {
                         </span>
                         <div className="min-w-0">
                           <p className="font-medium truncate">{s.name}</p>
-                          <p className="text-xs text-gray-400 truncate">
-                            {s.email}
-                          </p>
+                          {s.email && (
+                            <p className="text-xs text-gray-400 truncate">
+                              {s.email}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {s.phone || "—"}
+                    <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">
+                      {formatPhone(s.phone) || "—"}
                     </td>
                     {/* <td className="px-4 py-3 text-gray-600">
                       {s.course || "—"}
@@ -356,7 +359,9 @@ export default function AdminStudentsPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-sm truncate">{s.name}</p>
-                    <p className="text-xs text-gray-400 truncate">{s.email}</p>
+                    <p className="text-xs text-gray-600 truncate">
+                      {formatPhone(s.phone) || "—"}
+                    </p>
                   </div>
                   <span
                     className={
@@ -371,7 +376,7 @@ export default function AdminStudentsPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-3">
-                  <p>SĐT: {s.phone || "—"}</p>
+                  <p className="truncate">Email: {s.email || "—"}</p>
                   <p>Tham gia: {formatJoinedDate(s.createdAt)}</p>
                   <p>
                     Máy tính:{" "}

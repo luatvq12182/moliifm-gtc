@@ -64,7 +64,7 @@ export default function PracticeHistoryModal({ student, onClose }) {
               Lịch sử luyện nói — {student?.name}
             </p>
             <p className="text-xs text-gray-500 mt-0.5">
-              {pagination.total} lượt đọc · {student?.email}
+              {pagination.total} lượt đọc · {student?.phone || student?.email}
             </p>
           </div>
           <button

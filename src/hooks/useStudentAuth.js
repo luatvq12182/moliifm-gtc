@@ -5,9 +5,9 @@ import { getDeviceId, getDeviceType } from '../lib/deviceId.js'
 
 export function useStudentLogin() {
     return useMutation({
-        mutationFn: ({ email, password }) =>
+        mutationFn: ({ phone, password }) =>
             api.post('/auth/student/login', {
-                email,
+                phone,
                 password,
                 deviceId: getDeviceId(),
                 deviceType: getDeviceType(),

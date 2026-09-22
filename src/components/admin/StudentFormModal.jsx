@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { isValidPhone } from "../../lib/phone.js";
 
-const EMPTY_FORM = { name: "", email: "", phone: "", course: "" };
+const EMPTY_FORM = { name: "", phone: "", email: "" };
 
 // Dùng chung cho cả 2 chế độ:
 // - mode="create": student = null, submit gọi API tạo mới
@@ -42,8 +43,14 @@ export default function StudentFormModal({
     e.preventDefault();
     setFormError("");
 
-    if (!form.name.trim() || !form.email.trim()) {
-      setFormError("Vui lòng nhập đầy đủ tên và email.");
+    if (!form.name.trim() || !form.phone.trim()) {
+      setFormError("Vui lòng nhập đầy đủ tên và số điện thoại.");
+      return;
+    }
+    // Báo ngay ở đây thay vì chờ máy chủ: học viên sẽ dùng số này để đăng
+    // nhập, gõ nhầm một chữ số là họ không vào được mà không hiểu vì sao.
+    if (!isValidPhone(form.phone)) {
+      setFormError("Số điện thoại không hợp lệ. Ví dụ: 0901 234 567 hoặc +84 901 234 567.");
       return;
     }
 
@@ -84,25 +91,27 @@ export default function StudentFormModal({
           </div>
 
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Email *</label>
+            <label className="text-xs text-gray-500 mb-1 block">
+              Số điện thoại * <span className="text-gray-400">(dùng để đăng nhập)</span>
+            </label>
             <input
-              type="email"
-              value={form.email}
-              onChange={handleChange("email")}
-              placeholder="hocvien@email.com"
+              type="tel"
+              value={form.phone}
+              onChange={handleChange("phone")}
+              placeholder="0901 234 567"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
 
           <div>
             <label className="text-xs text-gray-500 mb-1 block">
-              Số điện thoại
+              Email <span className="text-gray-400">(không bắt buộc)</span>
             </label>
             <input
-              type="text"
-              value={form.phone}
-              onChange={handleChange("phone")}
-              placeholder="0901 234 567"
+              type="email"
+              value={form.email}
+              onChange={handleChange("email")}
+              placeholder="hocvien@email.com"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>

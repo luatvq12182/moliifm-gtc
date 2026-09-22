@@ -176,17 +176,17 @@ function Report({ report }) {
               <thead className="bg-gray-50 text-gray-500">
                 <tr>
                   <th className="text-left px-2.5 py-1.5">Họ tên</th>
+                  <th className="text-left px-2.5 py-1.5">Số điện thoại</th>
                   <th className="text-left px-2.5 py-1.5">Email</th>
-                  <th className="text-left px-2.5 py-1.5">Điện thoại</th>
                 </tr>
               </thead>
               <tbody>
                 {sample.map((s) => (
                   <tr key={s.rowNumber} className="border-t border-gray-100">
                     <td className="px-2.5 py-1.5">{s.name}</td>
-                    <td className="px-2.5 py-1.5 text-gray-600">{s.email}</td>
+                    <td className="px-2.5 py-1.5 text-gray-700">{s.phone}</td>
                     <td className="px-2.5 py-1.5 text-gray-600">
-                      {s.phone || "—"}
+                      {s.email || "—"}
                     </td>
                   </tr>
                 ))}
@@ -209,8 +209,8 @@ function Report({ report }) {
               >
                 <span className="text-gray-500">Dòng {p.rowNumber}</span>
                 {p.name && <span className="ml-2">{p.name}</span>}
-                {p.email && (
-                  <span className="ml-2 text-gray-500">{p.email}</span>
+                {p.phone && (
+                  <span className="ml-2 text-gray-500">{p.phone}</span>
                 )}
                 <span className="ml-2 text-amber-800">— {p.reason}</span>
               </div>

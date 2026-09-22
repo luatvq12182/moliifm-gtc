@@ -5,7 +5,7 @@ import { useStudentLogin } from "../hooks/useStudentAuth.js";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
@@ -16,8 +16,8 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!email || !password) {
-      setError("Vui lòng nhập đầy đủ email và mật khẩu.");
+    if (!identifier || !password) {
+      setError("Vui lòng nhập đầy đủ số điện thoại và mật khẩu.");
       return;
     }
 
@@ -26,9 +26,13 @@ export default function LoginPage() {
 
     // Form đăng nhập dùng chung cho cả học viên và admin — thử tài khoản học
     // viên trước (đa số người dùng), nếu không khớp mới thử tài khoản admin,
-    // cuối cùng mới báo lỗi sai email/mật khẩu.
+    // cuối cùng mới báo lỗi.
+    //
+    // Học viên đăng nhập bằng SỐ ĐIỆN THOẠI, admin vẫn bằng EMAIL. Cùng một ô
+    // nhập: gõ số thì bước học viên nhận, gõ email thì bước học viên trượt vô
+    // hại rồi bước admin nhận.
     try {
-      await studentLogin.mutateAsync({ email, password });
+      await studentLogin.mutateAsync({ phone: identifier, password });
       navigate("/");
       return;
     } catch (studentErr) {
@@ -45,10 +49,10 @@ export default function LoginPage() {
     }
 
     try {
-      await adminLogin.mutateAsync({ email, password });
+      await adminLogin.mutateAsync({ email: identifier, password });
       navigate("/admin/students");
     } catch (adminErr) {
-      setError("Email hoặc mật khẩu không đúng.");
+      setError("Số điện thoại hoặc mật khẩu không đúng.");
     } finally {
       setLoading(false);
     }
@@ -65,12 +69,14 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Email</label>
+            <label className="text-xs text-gray-500 mb-1 block">Số điện thoại</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="user@email.com"
+              type="text"
+              inputMode="tel"
+              autoComplete="username"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="0901 234 567"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
