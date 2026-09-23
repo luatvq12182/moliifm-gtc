@@ -1,11 +1,19 @@
 import { useState } from "react";
 
-// Hiện mật khẩu tạm sau khi tạo học viên mới hoặc reset mật khẩu — có nút copy,
+// Hiện mật khẩu sau khi tạo học viên mới hoặc đặt lại mật khẩu — có nút copy,
 // vì alert() mặc định của trình duyệt không cho bôi đen/copy nội dung.
+//
+// HAI TÌNH HUỐNG, LỜI LẼ PHẢI KHÁC NHAU:
+//  - kind="created": mật khẩu ban đầu CHÍNH LÀ số điện thoại. Xem lại lúc nào
+//    cũng được, không có gì phải gấp gáp cất giữ.
+//  - kind="reset":   admin vừa sinh mật khẩu ngẫu nhiên. Hệ thống KHÔNG lưu
+//    bản đọc được, đóng cửa sổ là mất.
+// Dùng chung một câu cho cả hai thì một trong hai câu chắc chắn sai.
 export default function CredentialModal({
   open,
   studentName,
   tempPassword,
+  kind = "reset",
   onClose,
 }) {
   const [copied, setCopied] = useState(false);
@@ -33,12 +41,22 @@ export default function CredentialModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-heading font-semibold mb-1">
-          Mật khẩu tạm đã được tạo
+          {kind === "created" ? "Đã tạo tài khoản" : "Mật khẩu mới đã được tạo"}
         </h2>
         <p className="text-sm text-gray-500 mb-4">
-          Gửi mật khẩu này cho học viên{" "}
-          <span className="font-medium">{studentName}</span> — hệ thống sẽ không
-          hiển thị lại được nữa sau khi đóng cửa sổ này.
+          {kind === "created" ? (
+            <>
+              Mật khẩu đăng nhập của{" "}
+              <span className="font-medium">{studentName}</span> chính là số
+              điện thoại vừa nhập. Học viên đổi lại được trong mục Đổi mật khẩu.
+            </>
+          ) : (
+            <>
+              Gửi mật khẩu này cho học viên{" "}
+              <span className="font-medium">{studentName}</span> — hệ thống sẽ
+              không hiển thị lại được nữa sau khi đóng cửa sổ này.
+            </>
+          )}
         </p>
 
         <div className="flex items-center gap-2 mb-4">

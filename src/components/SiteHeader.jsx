@@ -82,10 +82,17 @@ export default function SiteHeader({
                   className="fixed inset-0 z-10"
                   onClick={() => setMenuOpen(false)}
                 />
-                <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden z-20">
+                <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden z-20">
+                  <Link
+                    to="/doi-mat-khau"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
+                  >
+                    Đổi mật khẩu
+                  </Link>
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 border-t border-gray-100"
                   >
                     Đăng xuất
                   </button>

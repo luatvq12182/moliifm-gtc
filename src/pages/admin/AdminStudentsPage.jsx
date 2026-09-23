@@ -172,7 +172,7 @@ export default function AdminStudentsPage() {
       // Không báo toast ở đây: hộp thoại hiện mật khẩu mới đã là lời xác nhận
       // rõ ràng nhất, thêm một thẻ nổi nữa là thừa.
       onSuccess: ({ tempPassword }) => {
-        setCredential({ name: student.name, tempPassword });
+        setCredential({ name: student.name, tempPassword, kind: "reset" });
       },
       onError: (err) => toast.error(err.message),
     });
@@ -207,7 +207,7 @@ export default function AdminStudentsPage() {
       createStudent.mutate(formData, {
         onSuccess: ({ student, tempPassword }) => {
           setModalOpen(false);
-          setCredential({ name: student.name, tempPassword });
+          setCredential({ name: student.name, tempPassword, kind: "created" });
         },
       });
     }
@@ -659,6 +659,7 @@ export default function AdminStudentsPage() {
         open={Boolean(credential)}
         studentName={credential?.name}
         tempPassword={credential?.tempPassword}
+        kind={credential?.kind}
         onClose={() => setCredential(null)}
       />
     </div>

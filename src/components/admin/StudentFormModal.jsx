@@ -121,10 +121,9 @@ export default function StudentFormModal({
           )}
 
           {mode === "create" && (
-            <p className="text-[11px] text-gray-400">
-              Mật khẩu tạm sẽ được hệ thống tự sinh và hiển thị ngay sau khi tạo
-              thành công — nhớ copy gửi cho học viên vì sẽ không hiển thị lại
-              được nữa.
+            <p className="text-[11px] text-gray-400 leading-snug">
+              Mật khẩu đăng nhập ban đầu chính là số điện thoại ở trên. Học viên
+              tự đổi lại được trong mục Đổi mật khẩu.
             </p>
           )}
 

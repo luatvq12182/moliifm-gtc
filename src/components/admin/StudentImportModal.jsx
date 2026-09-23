@@ -246,13 +246,12 @@ function DoneNotice({ count, onAgain, onClose }) {
     <div>
       <div className="rounded-lg border border-green-200 bg-green-50 p-4 mb-4">
         <p className="text-sm text-green-800 font-medium mb-1">
-          Đã tạo {count} tài khoản. File mật khẩu vừa được tải về máy bạn.
+          Đã tạo {count} tài khoản. File danh sách vừa được tải về máy bạn.
         </p>
         <p className="text-xs text-green-800">
-          Hệ thống <strong>không lưu lại</strong> mật khẩu ở dạng đọc được, nên
-          đây là bản duy nhất. Hãy cất file vào nơi an toàn trước khi phát cho
-          học viên. Nếu lỡ mất, dùng chức năng đặt lại mật khẩu cho từng học
-          viên.
+          Mật khẩu đăng nhập của mỗi học viên <strong>chính là số điện thoại</strong>{" "}
+          của họ. Nhắc học viên vào mục Đổi mật
+          khẩu để đặt mật khẩu riêng.
         </p>
       </div>
       <div className="flex gap-2">

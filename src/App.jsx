@@ -3,6 +3,7 @@ import FeatureSelectPage from "./pages/FeatureSelectPage.jsx";
 import CourseSelectPage from "./pages/CourseSelectPage.jsx";
 import LessonListPage from "./pages/LessonListPage.jsx";
 import LessonDetailPage from "./pages/LessonDetailPage.jsx";
+import ChangePasswordPage from "./pages/ChangePasswordPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import AdminLayout from "./layouts/AdminLayout.jsx";
 import AdminStudentsPage from "./pages/admin/AdminStudentsPage.jsx";
@@ -55,6 +56,15 @@ export default function App() {
         element={
           <ProtectedStudentRoute>
             <LessonDetailPage />
+          </ProtectedStudentRoute>
+        }
+      />
+
+      <Route
+        path="/doi-mat-khau"
+        element={
+          <ProtectedStudentRoute>
+            <ChangePasswordPage />
           </ProtectedStudentRoute>
         }
       />
