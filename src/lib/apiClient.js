@@ -43,6 +43,10 @@ async function apiFetch(path, options = {}) {
         // chung: 403 còn dùng cho lỗi giới hạn thiết bị lúc đăng nhập, đá người
         // ta ra ở ca đó là sai.
         const accountLocked = res.status === 403 && data?.code === 'ACCOUNT_LOCKED'
+        // Máy khác vừa đăng nhập và chiếm chỗ thiết bị này. Trả 401 nên nhánh
+        // dưới vốn đã xoá phiên — chỉ cần nhận ra để còn nói cho học viên biết
+        // VÌ SAO, thay vì đẩy họ về màn hình đăng nhập trắng trơn.
+        const deviceTakenOver = res.status === 401 && data?.code === 'DEVICE_TAKEN_OVER'
 
         if (res.status === 401 || accountLocked) {
             if (isAdminScope(path)) {
@@ -56,7 +60,7 @@ async function apiFetch(path, options = {}) {
             // Nói rõ vì sao bị đăng xuất. Không có dòng này thì học viên bị đẩy
             // về trang login trắng trơn giữa chừng và tưởng hệ thống lỗi.
             // sessionStorage vì ngay sau đây là một lần tải lại trang.
-            if (accountLocked) {
+            if (accountLocked || deviceTakenOver) {
                 try {
                     sessionStorage.setItem('logout_reason', data?.message || '')
                 } catch {

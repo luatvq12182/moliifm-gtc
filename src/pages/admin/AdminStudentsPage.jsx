@@ -128,10 +128,16 @@ export default function AdminStudentsPage() {
           ? "điện thoại"
           : "cả 2 thiết bị";
 
+    // Ý NGHĨA CỦA NÚT NÀY ĐÃ ĐỔI.
+    //
+    // Hồi máy đầu tiên giữ chỗ vĩnh viễn, đây là cách DUY NHẤT để học viên đổi
+    // thiết bị. Nay họ tự đổi được — đăng nhập ở máy mới là xong. Việc còn lại
+    // của nút: gỡ chỗ đang giữ, tức là ĐĂNG XUẤT học viên khỏi thiết bị đó.
+    // Dùng khi học viên mất máy, hoặc nghi tài khoản bị người khác dùng.
     const ok = await confirm({
-      title: `Reset ${targetLabel}?`,
-      message: `Thiết bị đã đăng ký của "${student.name}" sẽ bị gỡ. Học viên đăng nhập lại được từ một ${targetLabel === "cả 2 thiết bị" ? "thiết bị" : targetLabel} khác.`,
-      confirmLabel: "Reset thiết bị",
+      title: `Đăng xuất khỏi ${targetLabel}?`,
+      message: `"${student.name}" sẽ bị đăng xuất khỏi ${targetLabel} và phải đăng nhập lại. Học viên tự đăng nhập lại được, không cần nhờ trung tâm.`,
+      confirmLabel: "Đăng xuất thiết bị",
     });
     if (!ok) return;
 
@@ -141,7 +147,7 @@ export default function AdminStudentsPage() {
       { id: student._id, target },
       {
         onSuccess: () =>
-          toast.success(`Đã reset ${targetLabel} của ${student.name}.`),
+          toast.success(`Đã đăng xuất ${student.name} khỏi ${targetLabel}.`),
         onError: (err) => toast.error(err.message),
       },
     );
@@ -367,7 +373,7 @@ export default function AdminStudentsPage() {
                             Máy tính:
                           </span>
                           {s.devices?.desktop?.deviceId ? (
-                            <span className="text-green-600">Đã đăng ký</span>
+                            <span className="text-green-600">Đang dùng</span>
                           ) : (
                             <span className="text-gray-400">Trống</span>
                           )}
@@ -376,7 +382,7 @@ export default function AdminStudentsPage() {
                               onClick={() => handleResetDevices(s, "desktop")}
                               className="text-primary-dark hover:underline"
                             >
-                              Reset
+                              Đăng xuất
                             </button>
                           )}
                         </div>
@@ -385,7 +391,7 @@ export default function AdminStudentsPage() {
                             ĐT:
                           </span>
                           {s.devices?.mobile?.deviceId ? (
-                            <span className="text-green-600">Đã đăng ký</span>
+                            <span className="text-green-600">Đang dùng</span>
                           ) : (
                             <span className="text-gray-400">Trống</span>
                           )}
@@ -394,7 +400,7 @@ export default function AdminStudentsPage() {
                               onClick={() => handleResetDevices(s, "mobile")}
                               className="text-primary-dark hover:underline"
                             >
-                              Reset
+                              Đăng xuất
                             </button>
                           )}
                         </div>
@@ -404,7 +410,7 @@ export default function AdminStudentsPage() {
                             onClick={() => handleResetDevices(s, "both")}
                             className="text-red-500 hover:underline"
                           >
-                            Reset cả 2
+                            Đăng xuất cả 2
                           </button>
                         )}
                       </div>
@@ -500,7 +506,7 @@ export default function AdminStudentsPage() {
                   <p>
                     Máy tính:{" "}
                     {s.devices?.desktop?.deviceId ? (
-                      <span className="text-green-600">Đã đăng ký</span>
+                      <span className="text-green-600">Đang dùng</span>
                     ) : (
                       <span className="text-gray-400">Trống</span>
                     )}
@@ -508,7 +514,7 @@ export default function AdminStudentsPage() {
                   <p>
                     Điện thoại:{" "}
                     {s.devices?.mobile?.deviceId ? (
-                      <span className="text-green-600">Đã đăng ký</span>
+                      <span className="text-green-600">Đang dùng</span>
                     ) : (
                       <span className="text-gray-400">Trống</span>
                     )}
@@ -523,7 +529,7 @@ export default function AdminStudentsPage() {
                         onClick={() => handleResetDevices(s, "desktop")}
                         className="text-primary-dark font-medium"
                       >
-                        Reset máy tính
+                        Đăng xuất máy tính
                       </button>
                     )}
                     {s.devices?.mobile?.deviceId && (
@@ -531,14 +537,14 @@ export default function AdminStudentsPage() {
                         onClick={() => handleResetDevices(s, "mobile")}
                         className="text-primary-dark font-medium"
                       >
-                        Reset điện thoại
+                        Đăng xuất điện thoại
                       </button>
                     )}
                     <button
                       onClick={() => handleResetDevices(s, "both")}
                       className="text-red-500 font-medium"
                     >
-                      Reset cả 2
+                      Đăng xuất cả 2
                     </button>
                   </div>
                 )}
