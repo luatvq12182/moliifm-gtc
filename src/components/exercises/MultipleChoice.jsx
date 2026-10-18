@@ -45,11 +45,17 @@ export default function MultipleChoice({ questions, onFinish }) {
   const finishSection = () => {
     setSubmitted(true);
     const label = (index) => String.fromCharCode(65 + index); // 0->A, 1->B, 2->C...
-    const wrong = questions
+    // Trả về MỌI câu kèm cờ `correct`, không chỉ câu sai.
+    //
+    // Lịch sử học cần hiện lại trọn bài — học viên mở ra chỉ thấy mấy câu sai
+    // thì không biết mình đã làm những gì. Thẻ kết quả ngay sau khi làm bài
+    // vẫn chỉ lọc ra câu sai (xem ExerciseSection).
+    const all = questions
       .map((qq, i) => {
         const a = answers[i];
-        if (a && a.selectedIndex === qq.correctIndex) return null;
+        const correct = Boolean(a && a.selectedIndex === qq.correctIndex);
         return {
+          correct,
           type: "Chọn đáp án đúng",
           question: qq.question,
           pinyin: qq.pinyin,
@@ -60,9 +66,8 @@ export default function MultipleChoice({ questions, onFinish }) {
           correctAnswer: `${label(qq.correctIndex)}. ${qq.options[qq.correctIndex]?.hanzi}`,
           correctPinyin: qq.options[qq.correctIndex]?.pinyin || "",
         };
-      })
-      .filter(Boolean);
-    onFinish(correctCount, wrong);
+      });
+    onFinish(correctCount, all);
   };
 
   return (

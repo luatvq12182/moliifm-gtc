@@ -14,8 +14,17 @@ import ExerciseSection from "../components/ExerciseSection.jsx";
 import SpeakingSection from "../components/SpeakingSection.jsx";
 import TranslationSection from "../components/TranslationSection.jsx";
 import ResultSection from "../components/ResultSection.jsx";
+import { useSaveLessonAttempt } from "../hooks/useLessonHistory.js";
 
 const STEPS_PER_VIDEO = 4;
+
+// Một video coi như xong khi đi hết 4 bước.
+//
+// Tách ra khỏi component vì có HAI chỗ cần biết: phần dựng giao diện, và
+// effect ghi lịch sử (effect phải khai báo trước các lệnh return sớm nên
+// không dùng lại được hàm bên trong).
+const videoDone = (progress, index) =>
+  (progress[index]?.completedCount || 0) >= STEPS_PER_VIDEO;
 
 // Tiến độ của MỘT video. Mỗi video là một mạch 4 bước độc lập.
 const EMPTY_PROGRESS = {
@@ -52,11 +61,53 @@ export default function LessonDetailPage() {
   const videoRef = useRef(null);
   const pendingSegmentRef = useRef(null);
 
+  // Đã ghi lịch sử cho bài này chưa. Ở ref chứ không ở state: nó chỉ để chặn
+  // gửi lần hai, không ảnh hưởng gì tới những gì hiện trên màn hình.
+  const savedRef = useRef(false);
+  const saveAttempt = useSaveLessonAttempt();
+
   const backToLessonsLink = `/nghe-noi-video-ai/curriculum/${curriculumSlug}/course/${courseId}`;
 
   useEffect(() => {
     setActiveLineIndex(-1);
   }, [activeVideoIndex]);
+
+  /**
+   * GHI LỊCH SỬ KHI HỌC VIÊN ĐI HẾT CẢ BÀI.
+   *
+   * Khách chốt: bỏ dở giữa chừng thì không lưu gì. Nên đây là chỗ duy nhất
+   * gọi API, và chỉ khi MỌI video đã xong MỌI bước.
+   *
+   * Gửi đúng một lần, chốt bằng ref — effect chạy lại sau mỗi lần state đổi,
+   * và máy chủ tuy có chặn trùng nhưng để nó phải chặn là đã sai ở đây rồi.
+   *
+   * CHỈ GỬI ĐIỂM BÀI TẬP. Điểm luyện nói được máy chủ dựng lại từ chính các
+   * bản ghi nó đã lưu lúc chấm — client không gửi, và cũng không được gửi.
+   */
+  useEffect(() => {
+    if (savedRef.current || !lesson) return;
+    const videos = Array.isArray(lesson.videos) ? lesson.videos : [];
+    if (videos.length === 0) return;
+    if (!videos.every((_, i) => videoDone(progressByVideo, i))) return;
+
+    savedRef.current = true;
+    saveAttempt.mutate({
+      lessonId: lesson._id,
+      lessonTitle: lesson.title,
+      lessonOrder: lesson.order,
+      lessonSlug: lessonId,
+      courseSlug: courseId,
+      curriculumSlug,
+      videos: videos.map((v, i) => ({
+        index: i,
+        title: v.title || `Video ${i + 1}`,
+        exercise: progressByVideo[i]?.exerciseResult || null,
+      })),
+    });
+    // saveAttempt không nằm trong mảng phụ thuộc: đối tượng mutation đổi danh
+    // tính sau mỗi lần render, đưa vào là effect chạy lại vô tận.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lesson, progressByVideo, lessonId, courseId, curriculumSlug]);
 
   useEffect(() => {
     if (pendingSegmentRef.current) {
@@ -117,8 +168,7 @@ export default function LessonDetailPage() {
 
   const progressOf = (index) => progressByVideo[index] || EMPTY_PROGRESS;
   const current = progressOf(activeVideoIndex);
-  const isVideoDone = (index) =>
-    progressOf(index).completedCount >= STEPS_PER_VIDEO;
+  const isVideoDone = (index) => videoDone(progressByVideo, index);
 
   const patchVideo = (index, patch) =>
     setProgressByVideo((all) => ({
@@ -328,6 +378,11 @@ export default function LessonDetailPage() {
                   curriculumSlug,
                   courseSlug: courseId,
                   lessonSlug: lessonId,
+                  // PHẢI gửi videoIndex. lineIndex mà SpeakingSection gửi lên
+                  // là vị trí trong phạm vi MỘT video (nó nhận hội thoại đã
+                  // lọc theo video), nên bài 3 video thì câu đầu của cả ba đều
+                  // là 0. Thiếu số này thì máy chủ không phân biệt được chúng.
+                  videoIndex: i,
                 }}
                 onRequestPlaySegment={requestPlaySegment}
                 onComplete={(result) =>
@@ -373,6 +428,28 @@ export default function LessonDetailPage() {
                 Sang{" "}
                 {videos[nextUnfinishedIndex]?.title ||
                   `video ${nextUnfinishedIndex + 1}`}
+              </button>
+            </div>
+          )}
+
+          {lessonFinished && saveAttempt.isError && (
+            // Học viên vừa học xong cả bài mà bản ghi không lưu được thì phải
+            // nói ra và cho thử lại — im lặng là mất trắng công của họ.
+            <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <p className="text-sm text-amber-900">
+                Chưa lưu được kết quả bài học này vào lịch sử.
+              </p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                {saveAttempt.error.message}
+              </p>
+              <button
+                onClick={() => {
+                  savedRef.current = false;
+                  saveAttempt.reset();
+                }}
+                className="mt-2 px-4 py-1.5 rounded-lg text-sm font-medium bg-white border border-amber-300 hover:bg-amber-100"
+              >
+                Thử lưu lại
               </button>
             </div>
           )}

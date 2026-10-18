@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   getStudentInfo,
   isStudentLoggedIn,
@@ -16,6 +16,7 @@ export default function SiteHeader({
   title = "",
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const loggedIn = isStudentLoggedIn();
   const student = getStudentInfo();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -62,6 +63,23 @@ export default function SiteHeader({
 
       <div className="flex items-center gap-3 shrink-0">
         {loggedIn ? (
+          <>
+            {/* Lịch sử học đưa ra ngoài thành nút riêng thay vì nằm trong menu
+                thả xuống: đây là chỗ học viên quay lại thường xuyên, mà chôn
+                trong menu thì phải bấm hai lần mới tới. */}
+            <Link
+              to="/lich-su-hoc"
+              className={
+                "inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full transition " +
+                (location.pathname.startsWith("/lich-su-hoc")
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-800 hover:bg-white/60")
+              }
+            >
+              <HistoryIcon />
+              <span className="hidden sm:inline">Lịch sử học</span>
+            </Link>
+
           <div className="relative">
             <button
               onClick={() => setMenuOpen((o) => !o)}
@@ -69,9 +87,6 @@ export default function SiteHeader({
             >
               <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center font-medium text-gray-700">
                 {student?.name?.[0] || "H"}
-              </span>
-              <span className="text-sm font-medium hidden sm:inline">
-                {student?.name || "Học viên"}
               </span>
               <ChevronDownIcon />
             </button>
@@ -82,7 +97,18 @@ export default function SiteHeader({
                   className="fixed inset-0 z-10"
                   onClick={() => setMenuOpen(false)}
                 />
-                <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden z-20">
+                <div className="absolute right-0 mt-2 w-52 bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden z-20">
+                  {/* Tên chuyển vào đây sau khi bỏ khỏi thanh ngang. Vẫn phải
+                      hiện ở đâu đó — máy dùng chung thì học viên cần biết
+                      mình đang đăng nhập bằng tài khoản nào. */}
+                  <div className="px-4 py-2.5 border-b border-gray-100">
+                    <p className="text-sm font-medium truncate">
+                      {student?.name || "Học viên"}
+                    </p>
+                    {student?.phone && (
+                      <p className="text-xs text-gray-400">{student.phone}</p>
+                    )}
+                  </div>
                   <Link
                     to="/doi-mat-khau"
                     onClick={() => setMenuOpen(false)}
@@ -100,6 +126,7 @@ export default function SiteHeader({
               </>
             )}
           </div>
+          </>
         ) : (
           <Link
             to="/login"
@@ -110,6 +137,15 @@ export default function SiteHeader({
         )}
       </div>
     </header>
+  );
+}
+
+function HistoryIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

@@ -44,11 +44,17 @@ export default function TrueFalse({ questions, onFinish }) {
 
   const finishSection = () => {
     setSubmitted(true);
-    const wrong = questions
+    // Trả về MỌI câu kèm cờ `correct`, không chỉ câu sai.
+    //
+    // Lịch sử học cần hiện lại trọn bài — học viên mở ra chỉ thấy mấy câu sai
+    // thì không biết mình đã làm những gì. Thẻ kết quả ngay sau khi làm bài
+    // vẫn chỉ lọc ra câu sai (xem ExerciseSection).
+    const all = questions
       .map((qq, i) => {
         const a = answers[i];
-        if (a && a.value === qq.correct) return null;
+        const correct = Boolean(a && a.value === qq.correct);
         return {
+          correct,
           type: "Đúng / Sai",
           question: qq.statement,
           pinyin: qq.pinyin,
@@ -59,9 +65,8 @@ export default function TrueFalse({ questions, onFinish }) {
           correction: qq.correction || "",
           correctionPinyin: qq.correctionPinyin || "",
         };
-      })
-      .filter(Boolean);
-    onFinish(correctCount, wrong);
+      });
+    onFinish(correctCount, all);
   };
 
   return (

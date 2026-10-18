@@ -78,12 +78,18 @@ export default function ShortAnswer({ questions, onFinish }) {
 
   const finishSection = () => {
     setSubmitted(true);
-    const wrong = questions
+    // Trả về MỌI câu kèm cờ `correct`, không chỉ câu sai.
+    //
+    // Lịch sử học cần hiện lại trọn bài — học viên mở ra chỉ thấy mấy câu sai
+    // thì không biết mình đã làm những gì. Thẻ kết quả ngay sau khi làm bài
+    // vẫn chỉ lọc ra câu sai (xem ExerciseSection).
+    const all = questions
       .map((qq, i) => {
         const a = answers[i];
-        if (a && a.isCorrect) return null;
+        const correct = Boolean(a && a.isCorrect);
         const correctAnswer = qq.acceptedAnswers[0];
         return {
+          correct,
           type: "Trả lời câu hỏi",
           question: qq.question,
           pinyin: qq.pinyin,
@@ -92,9 +98,8 @@ export default function ShortAnswer({ questions, onFinish }) {
           correctAnswer,
           correctPinyin: toPinyin(correctAnswer), // tự sinh phiên âm cho đáp án
         };
-      })
-      .filter(Boolean);
-    onFinish(correctCount, wrong);
+      });
+    onFinish(correctCount, all);
   };
 
   // Phiên âm đáp án tham khảo của câu hiện tại (nếu là chữ Hán).

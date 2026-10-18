@@ -4,6 +4,8 @@ import CourseSelectPage from "./pages/CourseSelectPage.jsx";
 import LessonListPage from "./pages/LessonListPage.jsx";
 import LessonDetailPage from "./pages/LessonDetailPage.jsx";
 import ChangePasswordPage from "./pages/ChangePasswordPage.jsx";
+import LessonHistoryPage from "./pages/LessonHistoryPage.jsx";
+import LessonHistoryDetailPage from "./pages/LessonHistoryDetailPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import AdminLayout from "./layouts/AdminLayout.jsx";
 import AdminStudentsPage from "./pages/admin/AdminStudentsPage.jsx";
@@ -56,6 +58,23 @@ export default function App() {
         element={
           <ProtectedStudentRoute>
             <LessonDetailPage />
+          </ProtectedStudentRoute>
+        }
+      />
+
+      <Route
+        path="/lich-su-hoc"
+        element={
+          <ProtectedStudentRoute>
+            <LessonHistoryPage />
+          </ProtectedStudentRoute>
+        }
+      />
+      <Route
+        path="/lich-su-hoc/:id"
+        element={
+          <ProtectedStudentRoute>
+            <LessonHistoryDetailPage />
           </ProtectedStudentRoute>
         }
       />

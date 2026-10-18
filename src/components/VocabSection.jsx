@@ -115,12 +115,16 @@ export default function VocabSection({ vocabulary, onComplete }) {
         })}
       </div>
 
-      <button
-        onClick={onComplete}
-        className="w-full py-2.5 rounded-lg font-medium bg-primary hover:bg-primary-dark text-gray-900"
-      >
-        Tiếp tục
-      </button>
+      {/* Không có onComplete = đang XEM LẠI trong lịch sử học, không có bước
+          nào để đi tiếp. Trang học luôn truyền vào nên ở đó không đổi gì. */}
+      {onComplete && (
+        <button
+          onClick={onComplete}
+          className="w-full py-2.5 rounded-lg font-medium bg-primary hover:bg-primary-dark text-gray-900"
+        >
+          Tiếp tục
+        </button>
+      )}
 
       {strokeChar && (
         <StrokeOrderModal

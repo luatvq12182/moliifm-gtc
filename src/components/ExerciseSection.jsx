@@ -27,7 +27,9 @@ const COMPONENTS = {
 export default function ExerciseSection({ exercises, onComplete }) {
   const [activeTab, setActiveTab] = useState(null);
   const [results, setResults] = useState({});
-  const [wrongByTab, setWrongByTab] = useState({});
+  // MỌI câu đã làm của từng dạng, kèm cờ đúng/sai. Thẻ kết quả ngay sau
+  // khi làm bài chỉ lọc ra câu sai; lịch sử học thì cần trọn bộ.
+  const [answersByTab, setAnswersByTab] = useState({});
 
   // CHỈ giữ dạng bài THỰC SỰ CÓ câu hỏi.
   //
@@ -64,9 +66,9 @@ export default function ExerciseSection({ exercises, onComplete }) {
     availableTabs.length > 0 &&
     availableTabs.every((t) => results[t.key] !== undefined);
 
-  const finishTab = (key, correctCount, wrongList) => {
+  const finishTab = (key, correctCount, answers) => {
     setResults((r) => ({ ...r, [key]: correctCount }));
-    setWrongByTab((w) => ({ ...w, [key]: wrongList || [] }));
+    setAnswersByTab((a) => ({ ...a, [key]: answers || [] }));
     const nextTab = availableTabs.find(
       (t) => t.key !== key && results[t.key] === undefined,
     );
@@ -85,7 +87,7 @@ export default function ExerciseSection({ exercises, onComplete }) {
           tiếp theo.
         </p>
         <button
-          onClick={() => onComplete({ correct: 0, total: 0 })}
+          onClick={() => onComplete({ correct: 0, total: 0, answers: [] })}
           className="w-full py-2.5 rounded-lg font-medium bg-primary hover:bg-primary-dark text-gray-900"
         >
           Tiếp tục
@@ -139,11 +141,20 @@ export default function ExerciseSection({ exercises, onComplete }) {
           <ExerciseResultCard
             correct={totalCorrect}
             total={totalQuestions}
-            wrongAnswers={availableTabs.flatMap((t) => wrongByTab[t.key] || [])}
+            wrongAnswers={availableTabs
+              .flatMap((t) => answersByTab[t.key] || [])
+              .filter((a) => !a.correct)}
           />
           <button
             onClick={() =>
-              onComplete({ correct: totalCorrect, total: totalQuestions })
+              onComplete({
+                correct: totalCorrect,
+                total: totalQuestions,
+                // Gửi TRỌN BỘ câu đã làm — đúng lẫn sai — để lưu vào lịch sử.
+                // Trước đây chỉ gửi câu sai, nên học viên mở lại lịch sử chỉ
+                // thấy những chỗ mình làm hỏng, không thấy mình đã làm gì.
+                answers: availableTabs.flatMap((t) => answersByTab[t.key] || []),
+              })
             }
             className="w-full py-2.5 rounded-lg font-medium bg-primary hover:bg-primary-dark text-gray-900"
           >

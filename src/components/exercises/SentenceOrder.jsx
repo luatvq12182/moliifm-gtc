@@ -98,10 +98,15 @@ export default function SentenceOrder({ questions, onFinish }) {
 
   const finishSection = () => {
     setSubmitted(true);
-    const wrong = questions
+    // Trả về MỌI câu kèm cờ `correct`, không chỉ câu sai.
+    //
+    // Lịch sử học cần hiện lại trọn bài — học viên mở ra chỉ thấy mấy câu sai
+    // thì không biết mình đã làm những gì. Thẻ kết quả ngay sau khi làm bài
+    // vẫn chỉ lọc ra câu sai (xem ExerciseSection).
+    const all = questions
       .map((qq, i) => {
         const a = answers[i];
-        if (a && a.isCorrect) return null;
+        const correct = Boolean(a && a.isCorrect);
         const built = a
           ? a.picked.map((idx) => qq.words[idx]?.hanzi).join("")
           : "(chưa trả lời)";
@@ -114,6 +119,7 @@ export default function SentenceOrder({ questions, onFinish }) {
         // Pinyin câu đúng: ghép theo THỨ TỰ câu đúng (không theo mảng words).
         const correctPinyin = buildOrderedPinyin(qq.correctSentence, qq.words);
         return {
+          correct,
           type: "Sắp xếp câu",
           question: qq.words.map((w) => w.hanzi).join(" / "),
           questionWords: qq.words.map((w) => ({
@@ -126,9 +132,8 @@ export default function SentenceOrder({ questions, onFinish }) {
           correctAnswer: qq.correctSentence,
           correctPinyin,
         };
-      })
-      .filter(Boolean);
-    onFinish(correctCount, wrong);
+      });
+    onFinish(correctCount, all);
   };
 
   // Pinyin của câu đúng (đúng thứ tự) cho câu hiện tại — hiện khi đã chấm.

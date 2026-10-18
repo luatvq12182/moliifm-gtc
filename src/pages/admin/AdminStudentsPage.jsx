@@ -15,8 +15,8 @@ import CredentialModal from "../../components/admin/CredentialModal.jsx";
 import StudentImportModal from "../../components/admin/StudentImportModal.jsx";
 import { useToasts, ToastStack } from "../../components/admin/Toast.jsx";
 import { useConfirm } from "../../components/admin/ConfirmDialog.jsx";
+import LessonHistoryModal from "../../components/admin/LessonHistoryModal.jsx";
 import PracticeHistoryModal from "../../components/admin/PracticeHistoryModal.jsx";
-import { useAppConfigQuery } from "../../hooks/useAppConfig.js";
 import { formatPhone } from "../../lib/phone.js";
 
 const STATUS_FILTERS = [
@@ -39,7 +39,9 @@ export default function AdminStudentsPage() {
   const [modalMode, setModalMode] = useState("create"); // 'create' | 'edit'
   const [editingStudent, setEditingStudent] = useState(null);
   const [credential, setCredential] = useState(null); // { name, tempPassword } | null
-  const [historyStudent, setHistoryStudent] = useState(null); // học viên đang xem lịch sử luyện nói
+  const [historyStudent, setHistoryStudent] = useState(null); // học viên đang xem lịch sử
+  // Đang xem lớp đào sâu (chấm từng chữ) thay vì lịch sử bài học.
+  const [deepDive, setDeepDive] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
   const queryClient = useQueryClient();
@@ -49,8 +51,6 @@ export default function AdminStudentsPage() {
   // Mục "Lịch sử luyện nói" chỉ tồn tại khi máy chủ bật PRACTICE_HISTORY_ENABLED.
   // Khi sản phẩm ra thị trường thì tắt cờ ở backend, nút này tự biến mất — không
   // cần sửa hay build lại frontend.
-  const { data: appConfig } = useAppConfigQuery();
-  const practiceHistoryEnabled = Boolean(appConfig?.practiceHistoryEnabled);
 
   const { data, isLoading, isError, error } = useStudentsQuery({
     search: debouncedSearch,
@@ -436,14 +436,17 @@ export default function AdminStudentsPage() {
                       >
                         Đặt lại MK
                       </button>
-                      {practiceHistoryEnabled && (
+                      {(
                         <>
                           <span className="text-gray-300">·</span>
                           <button
-                            onClick={() => setHistoryStudent(s)}
+                            onClick={() => {
+                              setDeepDive(false);
+                              setHistoryStudent(s);
+                            }}
                             className="text-xs text-gray-600 hover:underline"
                           >
-                            Lịch sử luyện nói
+                            Lịch sử học
                           </button>
                         </>
                       )}
@@ -567,14 +570,15 @@ export default function AdminStudentsPage() {
                   >
                     Đặt lại MK
                   </button>
-                  {practiceHistoryEnabled && (
-                    <button
-                      onClick={() => setHistoryStudent(s)}
-                      className="text-gray-600 font-medium"
-                    >
-                      Lịch sử nói
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      setDeepDive(false);
+                      setHistoryStudent(s);
+                    }}
+                    className="text-gray-600 font-medium"
+                  >
+                    Lịch sử học
+                  </button>
                   <button
                     onClick={() => handleToggleStatus(s)}
                     className="text-red-500 font-medium"
@@ -635,17 +639,22 @@ export default function AdminStudentsPage() {
         }
       />
 
-      {historyStudent && (
-
-        <PracticeHistoryModal
-
-          student={historyStudent}
-
-          onClose={() => setHistoryStudent(null)}
-
-        />
-
-      )}
+      {historyStudent &&
+        (deepDive ? (
+          <PracticeHistoryModal
+            student={historyStudent}
+            onClose={() => {
+              setDeepDive(false);
+              setHistoryStudent(null);
+            }}
+          />
+        ) : (
+          <LessonHistoryModal
+            student={historyStudent}
+            onClose={() => setHistoryStudent(null)}
+            onOpenDeepDive={() => setDeepDive(true)}
+          />
+        ))}
 
 
       {/* Hộp thoại xác nhận và các thẻ báo kết quả. Đặt cuối cùng để nổi trên
