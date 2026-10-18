@@ -73,7 +73,7 @@ export default function SiteHeader({
                 "inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full transition " +
                 (location.pathname.startsWith("/lich-su-hoc")
                   ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-800 hover:bg-white/60")
+                  : "bg-white/60 text-gray-800 hover:bg-white")
               }
             >
               <HistoryIcon />
