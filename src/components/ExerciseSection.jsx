@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import MultipleChoice from "./exercises/MultipleChoice.jsx";
 import TrueFalse from "./exercises/TrueFalse.jsx";
 import SentenceOrder from "./exercises/SentenceOrder.jsx";
@@ -24,12 +24,15 @@ const COMPONENTS = {
   shortAnswer: ShortAnswer,
 };
 
-export default function ExerciseSection({ exercises, onComplete }) {
-  const [activeTab, setActiveTab] = useState(null);
-  const [results, setResults] = useState({});
+export default function ExerciseSection({ exercises, onComplete, saved, onProgress }) {
+  // `saved` = trạng thái lưu từ lần học trước (xem onProgress bên dưới).
+  const [activeTab, setActiveTab] = useState(() => saved?.activeTab ?? null);
+  const [results, setResults] = useState(() => saved?.results || {});
   // MỌI câu đã làm của từng dạng, kèm cờ đúng/sai. Thẻ kết quả ngay sau
   // khi làm bài chỉ lọc ra câu sai; lịch sử học thì cần trọn bộ.
-  const [answersByTab, setAnswersByTab] = useState({});
+  const [answersByTab, setAnswersByTab] = useState(() => saved?.answersByTab || {});
+  // Bài làm dở của từng dạng, do chính component dạng bài báo lên.
+  const [tabs, setTabs] = useState(() => saved?.tabs || {});
 
   // CHỈ giữ dạng bài THỰC SỰ CÓ câu hỏi.
   //
@@ -65,6 +68,36 @@ export default function ExerciseSection({ exercises, onComplete }) {
   const allDone =
     availableTabs.length > 0 &&
     availableTabs.every((t) => results[t.key] !== undefined);
+
+  // Báo lên trang học mỗi khi bài làm đổi — làm đến đâu lưu đến đó.
+  //   state   -> đủ để dựng lại đúng chỗ cũ khi học viên quay lại.
+  //   summary -> các câu ĐÃ LÀM (cả dạng đã nộp lẫn dạng đang dở), để lịch sử
+  //              học hiện được cả bài đang học dở.
+  useEffect(() => {
+    if (!onProgress) return;
+    let correct = 0;
+    const answered = [];
+    for (const t of availableTabs) {
+      if (results[t.key] !== undefined) {
+        correct += results[t.key];
+        answered.push(...(answersByTab[t.key] || []));
+      } else {
+        const detail = tabs[t.key]?.detail || [];
+        correct += detail.filter((a) => a.correct).length;
+        answered.push(...detail);
+      }
+    }
+    // Bỏ `detail` khỏi phần lưu để dựng lại: nó suy ra được từ `answers`.
+    const slimTabs = Object.fromEntries(
+      Object.entries(tabs).map(([k, v]) => [k, { answers: v.answers, submitted: v.submitted }]),
+    );
+    onProgress({
+      state: { activeTab, results, answersByTab, tabs: slimTabs },
+      summary: { correct, total: answered.length, answers: answered },
+    });
+    // onProgress đổi danh tính mỗi lần render; chỉ cần báo khi bài làm đổi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, results, answersByTab, tabs, availableTabs]);
 
   const finishTab = (key, correctCount, answers) => {
     setResults((r) => ({ ...r, [key]: correctCount }));
@@ -131,6 +164,8 @@ export default function ExerciseSection({ exercises, onComplete }) {
             <Component
               questions={exercises[t.key]}
               onFinish={(c, w) => finishTab(t.key, c, w)}
+              saved={saved?.tabs?.[t.key]}
+              onProgress={(st) => setTabs((all) => ({ ...all, [t.key]: st }))}
             />
           </div>
         );

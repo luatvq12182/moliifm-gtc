@@ -10,6 +10,8 @@ import {
   isSpeechSupported,
 } from "../lib/speak.js";
 import { playSegment, stopSegment } from "../lib/audioSegment.js";
+import RecordingPlayer from "./history/RecordingPlayer.jsx";
+import { myRecordingPath } from "../hooks/useLessonHistory.js";
 
 // Tô màu ô chữ theo BA MỨC, không phải đúng/sai nhị phân.
 //
@@ -279,9 +281,23 @@ export default function SpeakingPracticeModal({
               nghe mình đọc rồi nghe câu mẫu, tai sẽ tự chỉ ra chỗ khác nhau mà
               con số không nói được. Bản ghi chỉ nằm trong bộ nhớ trình duyệt,
               tải lại trang là mất. */}
-          {phase === "result" && existingResult?.audioUrl && (
+          {/* Kết quả KHÔI PHỤC từ lần học trước: bản ghi trong bộ nhớ đã mất
+              theo trang cũ, nên nghe lại bản máy chủ đã lưu. */}
+          {phase === "result" && existingResult?.restored && (
+            <p className="mt-4 text-[11px] text-gray-400">
+              Kết quả từ lần học trước — bấm Đọc lại để luyện tiếp.
+            </p>
+          )}
+          {phase === "result" && (existingResult?.audioUrl || existingResult?.restored) && (
             <div className="mt-5 flex items-center justify-center gap-2">
-              <PlaybackButton src={existingResult.audioUrl} />
+              {existingResult.audioUrl ? (
+                <PlaybackButton src={existingResult.audioUrl} />
+              ) : (
+                existingResult.hasAudio &&
+                existingResult.attemptId && (
+                  <RecordingPlayer path={myRecordingPath(existingResult.attemptId)} label="Nghe giọng bạn" />
+                )
+              )}
               <button
                 onClick={() =>
                   onRequestPlaySegment(

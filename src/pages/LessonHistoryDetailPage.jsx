@@ -11,8 +11,9 @@ import { CourseTile } from "../components/history/HistoryHeader.jsx";
 import { CalendarIcon, ExerciseIcon, HeadphoneIcon } from "../components/history/icons.jsx";
 import { useMyAttempt, useMyHistory, myRecordingPath } from "../hooks/useLessonHistory.js";
 import { useLessonPublicQuery } from "../hooks/usePublicCatalog.js";
+import { RESUME_STATE } from "../hooks/useLessonProgress.js";
 import { resolveVideoContent } from "../lib/lessonVideos.js";
-import { formatDate } from "./LessonHistoryPage.jsx";
+import { attemptTime, formatDate, InProgressBadge, isInProgress } from "./LessonHistoryPage.jsx";
 
 /**
  * Xem lại một lượt hoàn thành bài học.
@@ -172,7 +173,7 @@ function AttemptReview({ attempt }) {
             isOpen={openStep === 1}
             onToggle={() => setOpenStep(openStep === 1 ? 0 : 1)}
           >
-            <ExerciseReview key={activeVideo} exercise={ex} />
+            <ExerciseReview key={activeVideo} exercise={ex} inProgress={isInProgress(attempt)} />
           </AccordionSection>
 
           <AccordionSection
@@ -265,8 +266,11 @@ function ReviewHeader({ attempt, lessonHref }) {
             <h1 className="text-xl font-heading font-bold truncate">
               {attempt.lessonTitle || "Bài học"}
             </h1>
-            <p className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
-              <CalendarIcon /> Hoàn thành lúc {formatDate(attempt.completedAt)}
+            <p className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 mt-0.5">
+              {isInProgress(attempt) && <InProgressBadge attempt={attempt} />}
+              <CalendarIcon />
+              {isInProgress(attempt) ? "Học gần nhất lúc " : "Hoàn thành lúc "}
+              {formatDate(attemptTime(attempt))}
               {attempt.curriculumName && (
                 <span className="hidden sm:inline text-gray-400">· {attempt.curriculumName}</span>
               )}
@@ -280,9 +284,13 @@ function ReviewHeader({ attempt, lessonHref }) {
           {lessonHref && (
             <Link
               to={lessonHref}
+              // Bài đang dở -> vào thẳng chỗ đang làm. Bài đã xong -> trang học
+              // tự hỏi nếu học viên còn một lần học dở khác của bài này.
+              state={isInProgress(attempt) ? RESUME_STATE : undefined}
               className="px-4 py-2 rounded-lg text-sm font-medium bg-primary hover:bg-primary-dark text-gray-900"
             >
-              Học lại bài này
+              {/* Bài đang dở: trang học tự mở đúng chỗ đã dừng. */}
+              {isInProgress(attempt) ? "Học tiếp" : "Học lại bài này"}
             </Link>
           )}
         </div>
@@ -347,10 +355,13 @@ function AttemptSwitcher({ attempt }) {
                 <span className="text-sm font-semibold text-gray-900">
                   Lần {a.attemptNo}
                   {on && <span className="ml-1.5 text-[10px] font-medium text-orange-700">đang xem</span>}
+                  {isInProgress(a) && (
+                    <span className="ml-1.5 text-[10px] font-medium text-blue-700">đang học {a.progressPercent ?? 0}%</span>
+                  )}
                 </span>
                 {/* Giờ đặt TRƯỚC ngày: hai lần học cùng một ngày là chuyện
                     thường, chỉ ghi ngày thì hai thẻ trông y hệt nhau. */}
-                <span className="text-[11px] text-gray-400">{shortTime(a.completedAt)}</span>
+                <span className="text-[11px] text-gray-400">{shortTime(attemptTime(a))}</span>
               </div>
               <div className="flex items-center gap-3 mt-1 text-xs">
                 <LabeledScore label="Bài tập" value={a.exercise?.score100} />

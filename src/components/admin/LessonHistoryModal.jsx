@@ -5,7 +5,7 @@ import {
   useStudentAttempt,
   studentRecordingPath,
 } from "../../hooks/useLessonHistory.js";
-import { formatDate } from "../../pages/LessonHistoryPage.jsx";
+import { attemptTime, formatDate, InProgressBadge, isInProgress } from "../../pages/LessonHistoryPage.jsx";
 
 /**
  * Lịch sử hoàn thành bài học của một học viên — màn đối chiếu của giáo viên.
@@ -210,8 +210,12 @@ function AttemptCard({ attempt, studentId, open, onToggle }) {
                 Lần {attempt.attemptNo}/{attempt.lessonAttemptCount}
               </span>
             )}
+            {isInProgress(attempt) && <InProgressBadge attempt={attempt} />}
           </div>
-          <p className="text-xs text-gray-400 mt-0.5">{formatDate(attempt.completedAt)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {isInProgress(attempt) ? "Học gần nhất " : ""}
+            {formatDate(attemptTime(attempt))}
+          </p>
         </div>
 
         <ScoreCell label="Bài tập" value={attempt.exercise?.score100} />

@@ -69,11 +69,19 @@ export default function AttemptDetail({ attempt, recordingPath }) {
   const ex = attempt.exercise || {};
   const sp = attempt.speaking || {};
   const multi = videos.length > 1;
+  const inProgress = attempt.status === "in_progress";
   const activeIndex = Math.min(active, Math.max(videos.length - 1, 0));
   const current = videos[activeIndex];
 
   return (
     <div className="space-y-3">
+      {/* Bài đang dở: nói rõ số liệu chỉ là của phần đã làm, kẻo giáo viên đọc
+          "Bài tập 2/3" thành điểm của cả bài. */}
+      {inProgress && (
+        <p className="text-xs text-blue-800 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+          Học viên đang học dở bài này ({attempt.progressPercent ?? 0}%). Số liệu bên dưới chỉ tính trên phần đã làm.
+        </p>
+      )}
       {/* Tóm tắt cả bài — điểm số đã ở dòng tiêu đề, đây là phần giải thích. */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-gray-600">
         <span className="inline-flex items-center gap-1.5">
@@ -117,6 +125,7 @@ export default function AttemptDetail({ attempt, recordingPath }) {
           key={current.index ?? activeIndex}
           video={current}
           position={multi ? `Video ${activeIndex + 1}/${videos.length}` : null}
+          inProgress={inProgress}
           recordingPath={recordingPath}
         />
       )}
@@ -182,7 +191,7 @@ function VideoTabs({ videos, active, onChange }) {
   );
 }
 
-function VideoPanel({ video, position, recordingPath }) {
+function VideoPanel({ video, position, inProgress, recordingPath }) {
   const ex = video.exercise || {};
   const answers = ex.answers || [];
   const lines = video.speaking?.lines || [];
@@ -230,7 +239,7 @@ function VideoPanel({ video, position, recordingPath }) {
         </SectionHeading>
 
         {answers.length === 0 ? (
-          <Empty>Phần này không có bài tập.</Empty>
+          <Empty>{inProgress ? "Chưa làm câu nào ở phần này." : "Phần này không có bài tập."}</Empty>
         ) : shown.length === 0 ? (
           <Empty>{filter === "wrong" ? "Không có câu nào sai." : "Không có câu nào đúng."}</Empty>
         ) : (
@@ -262,7 +271,7 @@ function VideoPanel({ video, position, recordingPath }) {
         </SectionHeading>
 
         {lines.length === 0 ? (
-          <Empty>Phần này chưa luyện nói câu nào.</Empty>
+          <Empty>{inProgress ? "Chưa luyện nói câu nào ở video này." : "Phần này chưa luyện nói câu nào."}</Empty>
         ) : (
           <ol className="divide-y divide-gray-100">
             {lines.map((l, i) => (

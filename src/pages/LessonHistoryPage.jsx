@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import SiteHeader from "../components/SiteHeader.jsx";
 import HistoryHeader, { CourseTile } from "../components/history/HistoryHeader.jsx";
 import {
@@ -11,6 +11,7 @@ import {
   HeadphoneIcon,
 } from "../components/history/icons.jsx";
 import { useMyHistory } from "../hooks/useLessonHistory.js";
+import { RESUME_STATE } from "../hooks/useLessonProgress.js";
 
 export function formatDate(value) {
   if (!value) return "";
@@ -21,6 +22,29 @@ export function formatDate(value) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/** Bài đang học dở (chưa đi hết mọi bước của mọi video). */
+export const isInProgress = (attempt) => attempt?.status === "in_progress";
+
+/** Mốc thời gian để hiện: lúc hoàn thành, hoặc lần học gần nhất nếu còn dở. */
+export const attemptTime = (attempt) =>
+  isInProgress(attempt) ? attempt.activityAt : attempt.completedAt || attempt.activityAt;
+
+/** Đường dẫn về trang học của bài (null nếu bản ghi thiếu slug). */
+export function lessonHrefOf(attempt) {
+  if (!attempt?.curriculumSlug || !attempt?.courseSlug || !attempt?.lessonSlug) return null;
+  return `/nghe-noi-video-ai/curriculum/${attempt.curriculumSlug}/course/${attempt.courseSlug}/lesson/${attempt.lessonSlug}`;
+}
+
+/** Nhãn "Đang học · 40%". */
+export function InProgressBadge({ attempt }) {
+  return (
+    <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">
+      <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+      Đang học · {attempt.progressPercent ?? 0}%
+    </span>
+  );
 }
 
 /**
@@ -331,7 +355,10 @@ function EmptyState({ filtering, onReset }) {
 }
 
 function AttemptRow({ attempt }) {
+  const navigate = useNavigate();
   const many = attempt.lessonAttemptCount > 1;
+  const inProgress = isInProgress(attempt);
+  const href = lessonHrefOf(attempt);
   return (
     <Link
       to={`/lich-su-hoc/${attempt._id}`}
@@ -352,10 +379,14 @@ function AttemptRow({ attempt }) {
                 Lần {attempt.attemptNo}/{attempt.lessonAttemptCount}
               </span>
             )}
+            {inProgress && <InProgressBadge attempt={attempt} />}
           </div>
           <p className="flex items-center gap-1.5 text-xs text-gray-400 mt-1 min-w-0">
             <CalendarIcon />
-            <span className="shrink-0">{formatDate(attempt.completedAt)}</span>
+            <span className="shrink-0">
+              {inProgress ? "Học gần nhất " : ""}
+              {formatDate(attemptTime(attempt))}
+            </span>
             {attempt.curriculumName && (
               <span className="truncate hidden sm:inline">· {attempt.curriculumName}</span>
             )}
@@ -364,8 +395,41 @@ function AttemptRow({ attempt }) {
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        <MiniScore icon={<ExerciseIcon size={15} />} label="Bài tập" value={attempt.exercise?.score100} />
-        <MiniScore icon={<HeadphoneIcon size={15} />} label="Phát âm" value={attempt.speaking?.avgScore} />
+        {/* Bài đang dở: điểm của nửa bài dễ gây hiểu lầm, thay bằng tiến độ và
+            nút học tiếp. Bấm vào dòng vẫn xem được chi tiết các câu đã làm. */}
+        {inProgress ? (
+          <>
+            <div className="flex-1 sm:flex-none sm:w-36">
+              <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-blue-500"
+                  style={{ width: `${attempt.progressPercent ?? 0}%` }}
+                />
+              </div>
+            </div>
+            {href && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  // Cả dòng là một liên kết tới trang chi tiết — chặn lại để
+                  // nút này đưa thẳng về trang học.
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // Từ lịch sử bấm "Học tiếp" -> vào thẳng chỗ đang dở, không hỏi.
+                  navigate(href, { state: RESUME_STATE });
+                }}
+                className="shrink-0 px-4 py-2 rounded-xl text-sm font-medium bg-primary hover:bg-primary-dark text-gray-900"
+              >
+                Học tiếp
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            <MiniScore icon={<ExerciseIcon size={15} />} label="Bài tập" value={attempt.exercise?.score100} />
+            <MiniScore icon={<HeadphoneIcon size={15} />} label="Phát âm" value={attempt.speaking?.avgScore} />
+          </>
+        )}
         <span className="hidden sm:flex w-8 h-8 ml-1 rounded-full items-center justify-center text-gray-300 group-hover:text-primary-dark transition">
           <ChevronRightIcon />
         </span>

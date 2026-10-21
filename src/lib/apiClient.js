@@ -156,6 +156,9 @@ export const api = {
     get: (path) => apiFetch(path, { method: 'GET' }),
     post: (path, body) => apiFetch(path, { method: 'POST', body }),
     put: (path, body) => apiFetch(path, { method: 'PUT', body }),
+    // Gửi được cả khi trang đang đóng (đóng tab, chuyển app trên điện thoại):
+    // trình duyệt giữ request sống sau khi trang biến mất. Giới hạn ~64 KB thân.
+    putKeepalive: (path, body) => apiFetch(path, { method: 'PUT', body, keepalive: true }),
     patch: (path, body) => apiFetch(path, { method: 'PATCH', body }),
     del: (path) => apiFetch(path, { method: 'DELETE' }),
     upload: (path, file, fieldName) => apiUpload(path, file, fieldName),
