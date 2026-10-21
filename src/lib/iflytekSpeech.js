@@ -272,7 +272,7 @@ async function createCaptureGraph(stream, onSamples) {
 // Xem tài liệu iFLYTEK: except_info=28673 (0x7001) không có tiếng/quá nhỏ,
 // 28676 (0x7004) đọc bừa/sai nội dung, 28680 (0x7008) nhiễu nhiều,
 // 28690 (0x7012) âm bị cắt/quá to, 28689 (0x7011) không có audio.
-function interpretRejection(exceptInfo) {
+export function interpretRejection(exceptInfo) {
     const code = parseInt(exceptInfo, 10)
     switch (code) {
         case 28673: // 0x7001 - không có tiếng hoặc quá nhỏ

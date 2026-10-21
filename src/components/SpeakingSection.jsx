@@ -8,10 +8,14 @@ export default function SpeakingSection({
   lessonContext,
   onRequestPlaySegment,
   onComplete,
+  savedResults,
+  onProgress,
 }) {
   const [pinyinVisible, setPinyinVisible] = useState({});
   const [viVisible, setViVisible] = useState({});
-  const [results, setResults] = useState({});
+  // Kết quả từng câu. Mở lại bài đang học dở thì nhận sẵn kết quả LƯỢT ĐỌC CUỐI
+  // của các câu đã luyện, do máy chủ trả về (`savedResults`, theo số câu).
+  const [results, setResults] = useState(() => savedResults || {});
   const [modalOpen, setModalOpen] = useState(false);
   const [modalIndex, setModalIndex] = useState(0);
 
@@ -22,6 +26,14 @@ export default function SpeakingSection({
 
   const attemptedCount = Object.keys(results).length;
   const allAttempted = attemptedCount === dialogue.length;
+
+  // Báo số câu đã luyện để trang học tính phần trăm tiến độ. Bản thân các
+  // lượt đọc thì máy chủ đã tự lưu ngay lúc chấm.
+  useEffect(() => {
+    onProgress?.({ attempted: attemptedCount, total: dialogue.length });
+    // onProgress đổi danh tính mỗi lần render; chỉ cần báo khi số câu đổi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attemptedCount, dialogue.length]);
 
   const openModal = (index) => {
     setModalIndex(index);

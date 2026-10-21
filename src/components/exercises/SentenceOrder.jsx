@@ -33,16 +33,27 @@ function buildOrderedPinyin(sentence, words) {
   return parts.join(" ");
 }
 
-export default function SentenceOrder({ questions, onFinish }) {
+export default function SentenceOrder({ questions, onFinish, saved, onProgress }) {
   // Phòng khi thiếu dữ liệu / không phải mảng.
   const items = Array.isArray(questions) ? questions : [];
 
-  const [current, setCurrent] = useState(0);
-  const [answers, setAnswers] = useState(() =>
-    Array(items.length).fill(null),
+  // Câu đã làm từ lần học trước (lưu ở máy chủ). Chỉ dùng khi số câu còn khớp:
+  // giảng viên sửa bài sau đó thì đáp án cũ không còn ứng với câu nào nữa.
+  const restored =
+    Array.isArray(saved?.answers) && saved.answers.length === items.length
+      ? saved.answers
+      : null;
+
+  const [answers, setAnswers] = useState(
+    () => restored || Array(items.length).fill(null),
   ); // {picked, isCorrect}
+  // Mở lại thì đứng ở câu đầu tiên chưa làm.
+  const [current, setCurrent] = useState(() => {
+    const i = (restored || []).findIndex((a) => a === null);
+    return i === -1 ? 0 : i;
+  });
   const [picked, setPicked] = useState([]);
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState(() => Boolean(restored && saved?.submitted));
 
   const q = items[current];
   const answer = answers[current];
@@ -59,6 +70,53 @@ export default function SentenceOrder({ questions, onFinish }) {
     setPicked(answer ? answer.picked : []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
+
+  // Mô tả từng câu cho LỊCH SỬ HỌC: đúng/sai, học viên chọn gì, đáp án.
+  // Dùng chung cho lúc nộp phần này và cho tiến độ đang dở (chỉ câu đã làm).
+  const describe = (list) => {
+    return questions
+      .map((qq, i) => {
+        const a = list[i];
+        const correct = Boolean(a && a.isCorrect);
+        const built = a
+          ? a.picked.map((idx) => qq.words[idx]?.hanzi).join("")
+          : "(chưa trả lời)";
+        const yourPinyin = a
+          ? a.picked
+              .map((idx) => qq.words[idx]?.pinyin)
+              .filter(Boolean)
+              .join(" ")
+          : "";
+        // Pinyin câu đúng: ghép theo THỨ TỰ câu đúng (không theo mảng words).
+        const correctPinyin = buildOrderedPinyin(qq.correctSentence, qq.words);
+        return {
+          correct,
+          type: "Sắp xếp câu",
+          question: qq.words.map((w) => w.hanzi).join(" / "),
+          questionWords: qq.words.map((w) => ({
+            hanzi: w.hanzi,
+            pinyin: w.pinyin || "",
+          })),
+          pinyin: "",
+          yourAnswer: built,
+          yourPinyin,
+          correctAnswer: qq.correctSentence,
+          correctPinyin,
+        };
+      });
+  };
+
+  // Báo trạng thái lên trên mỗi khi học viên trả lời / nộp phần này, để trang
+  // học lưu tiến độ — làm đến đâu lưu đến đó.
+  useEffect(() => {
+    onProgress?.({
+      answers,
+      submitted,
+      detail: describe(answers).filter((_, i) => answers[i] !== null),
+    });
+    // onProgress/describe đổi danh tính mỗi lần render; chỉ cần báo khi bài làm đổi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, submitted]);
 
   // Chốt chặn: dạng bài không có câu hỏi nào thì KHÔNG dựng gì cả.
   // ExerciseSection đã lọc trước nên bình thường không rơi vào đây, nhưng
@@ -103,36 +161,7 @@ export default function SentenceOrder({ questions, onFinish }) {
     // Lịch sử học cần hiện lại trọn bài — học viên mở ra chỉ thấy mấy câu sai
     // thì không biết mình đã làm những gì. Thẻ kết quả ngay sau khi làm bài
     // vẫn chỉ lọc ra câu sai (xem ExerciseSection).
-    const all = questions
-      .map((qq, i) => {
-        const a = answers[i];
-        const correct = Boolean(a && a.isCorrect);
-        const built = a
-          ? a.picked.map((idx) => qq.words[idx]?.hanzi).join("")
-          : "(chưa trả lời)";
-        const yourPinyin = a
-          ? a.picked
-              .map((idx) => qq.words[idx]?.pinyin)
-              .filter(Boolean)
-              .join(" ")
-          : "";
-        // Pinyin câu đúng: ghép theo THỨ TỰ câu đúng (không theo mảng words).
-        const correctPinyin = buildOrderedPinyin(qq.correctSentence, qq.words);
-        return {
-          correct,
-          type: "Sắp xếp câu",
-          question: qq.words.map((w) => w.hanzi).join(" / "),
-          questionWords: qq.words.map((w) => ({
-            hanzi: w.hanzi,
-            pinyin: w.pinyin || "",
-          })),
-          pinyin: "",
-          yourAnswer: built,
-          yourPinyin,
-          correctAnswer: qq.correctSentence,
-          correctPinyin,
-        };
-      });
+    const all = describe(answers);
     onFinish(correctCount, all);
   };
 

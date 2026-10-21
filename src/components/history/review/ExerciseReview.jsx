@@ -10,7 +10,7 @@ import { AnswerRow } from "../AttemptDetail.jsx";
  *
  * Tab nào có câu sai thì gắn chấm đỏ — liếc qua là biết phải mở tab nào.
  */
-export default function ExerciseReview({ exercise }) {
+export default function ExerciseReview({ exercise, inProgress = false }) {
   const answers = useMemo(() => exercise?.answers || [], [exercise]);
 
   const groups = useMemo(() => {
@@ -31,7 +31,12 @@ export default function ExerciseReview({ exercise }) {
   const current = groups.find((g) => g.type === active) || groups[0];
 
   if (!exercise?.total) {
-    return <p className="text-sm text-gray-500">Phần này không có bài tập.</p>;
+    return (
+      <p className="text-sm text-gray-500">
+        {/* Bài đang học dở: phần này có thể chỉ là CHƯA LÀM, không phải không có. */}
+        {inProgress ? "Chưa làm câu nào ở phần này." : "Phần này không có bài tập."}
+      </p>
+    );
   }
 
   // Bản ghi cũ chỉ lưu câu SAI (trước khi đổi sang lưu cả bài) — nói rõ để

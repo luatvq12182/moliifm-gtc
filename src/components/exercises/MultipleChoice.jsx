@@ -1,14 +1,60 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-export default function MultipleChoice({ questions, onFinish }) {
+export default function MultipleChoice({ questions, onFinish, saved, onProgress }) {
   // Phòng khi thiếu dữ liệu / không phải mảng.
   const items = Array.isArray(questions) ? questions : [];
 
-  const [current, setCurrent] = useState(0);
-  const [answers, setAnswers] = useState(() =>
-    Array(items.length).fill(null),
+  // Câu đã làm từ lần học trước (lưu ở máy chủ). Chỉ dùng khi số câu còn khớp:
+  // giảng viên sửa bài sau đó thì đáp án cũ không còn ứng với câu nào nữa.
+  const restored =
+    Array.isArray(saved?.answers) && saved.answers.length === items.length
+      ? saved.answers
+      : null;
+
+  const [answers, setAnswers] = useState(
+    () => restored || Array(items.length).fill(null),
   );
-  const [submitted, setSubmitted] = useState(false);
+  // Mở lại thì đứng ở câu đầu tiên chưa làm.
+  const [current, setCurrent] = useState(() => {
+    const i = (restored || []).findIndex((a) => a === null);
+    return i === -1 ? 0 : i;
+  });
+  const [submitted, setSubmitted] = useState(() => Boolean(restored && saved?.submitted));
+
+  // Mô tả từng câu cho LỊCH SỬ HỌC: đúng/sai, học viên chọn gì, đáp án.
+  // Dùng chung cho lúc nộp phần này và cho tiến độ đang dở (chỉ câu đã làm).
+  const describe = (list) => {
+    const label = (index) => String.fromCharCode(65 + index); // 0->A, 1->B, 2->C...
+    return questions
+      .map((qq, i) => {
+        const a = list[i];
+        const correct = Boolean(a && a.selectedIndex === qq.correctIndex);
+        return {
+          correct,
+          type: "Chọn đáp án đúng",
+          question: qq.question,
+          pinyin: qq.pinyin,
+          yourAnswer: a
+            ? `${label(a.selectedIndex)}. ${qq.options[a.selectedIndex]?.hanzi}`
+            : "(chưa trả lời)",
+          yourPinyin: a ? qq.options[a.selectedIndex]?.pinyin : "",
+          correctAnswer: `${label(qq.correctIndex)}. ${qq.options[qq.correctIndex]?.hanzi}`,
+          correctPinyin: qq.options[qq.correctIndex]?.pinyin || "",
+        };
+      });
+  };
+
+  // Báo trạng thái lên trên mỗi khi học viên trả lời / nộp phần này, để trang
+  // học lưu tiến độ — làm đến đâu lưu đến đó.
+  useEffect(() => {
+    onProgress?.({
+      answers,
+      submitted,
+      detail: describe(answers).filter((_, i) => answers[i] !== null),
+    });
+    // onProgress/describe đổi danh tính mỗi lần render; chỉ cần báo khi bài làm đổi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, submitted]);
 
   // Chốt chặn: dạng bài không có câu hỏi nào thì KHÔNG dựng gì cả.
   // ExerciseSection đã lọc trước nên bình thường không rơi vào đây, nhưng
@@ -44,29 +90,12 @@ export default function MultipleChoice({ questions, onFinish }) {
 
   const finishSection = () => {
     setSubmitted(true);
-    const label = (index) => String.fromCharCode(65 + index); // 0->A, 1->B, 2->C...
     // Trả về MỌI câu kèm cờ `correct`, không chỉ câu sai.
     //
     // Lịch sử học cần hiện lại trọn bài — học viên mở ra chỉ thấy mấy câu sai
     // thì không biết mình đã làm những gì. Thẻ kết quả ngay sau khi làm bài
     // vẫn chỉ lọc ra câu sai (xem ExerciseSection).
-    const all = questions
-      .map((qq, i) => {
-        const a = answers[i];
-        const correct = Boolean(a && a.selectedIndex === qq.correctIndex);
-        return {
-          correct,
-          type: "Chọn đáp án đúng",
-          question: qq.question,
-          pinyin: qq.pinyin,
-          yourAnswer: a
-            ? `${label(a.selectedIndex)}. ${qq.options[a.selectedIndex]?.hanzi}`
-            : "(chưa trả lời)",
-          yourPinyin: a ? qq.options[a.selectedIndex]?.pinyin : "",
-          correctAnswer: `${label(qq.correctIndex)}. ${qq.options[qq.correctIndex]?.hanzi}`,
-          correctPinyin: qq.options[qq.correctIndex]?.pinyin || "",
-        };
-      });
+    const all = describe(answers);
     onFinish(correctCount, all);
   };
 
