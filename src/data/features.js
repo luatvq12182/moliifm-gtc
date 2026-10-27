@@ -6,7 +6,16 @@ export const features = [
         available: true,
         route: '/nghe-noi-video-ai',
         thumbnail: '/images/features/nghe-noi-video-ai.webp',
-        // tags: ['Nghe hiểu', 'Luyện nói', 'AI chấm điểm'],
+        tags: ['Nghe hiểu', 'Bài tập dạng đề HSK', 'Luyện nói', 'AI chấm điểm'],
+    },
+    {
+        id: 'hoc-lieu',
+        name: 'HỌC LIỆU KHOÁ HỌC',
+        description: 'Xem slide bài giảng của các khoá học bạn đang theo học tại trung tâm',
+        available: true,
+        route: '/hoc-lieu',
+        thumbnail: '/images/features/hoc-lieu-khoa-hoc.webp',
+        tags: ['Slide bài giảng', 'Theo từng khoá học'],
     },
     // {
     //     id: 'format-2',

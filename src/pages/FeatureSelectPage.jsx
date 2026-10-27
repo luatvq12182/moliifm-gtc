@@ -21,15 +21,20 @@ const THEME = {
   },
 };
 
-const PRIMARY_TAGS = [
-  { label: "Nghe hiểu", icon: <HeadphoneIcon /> },
-  { label: "Bài tập dạng đề HSK", icon: <HskExerciseIcon /> },
-  { label: "Luyện nói", icon: <MicIcon /> },
-  { label: "AI chấm điểm", icon: <SparkleIcon /> },
-];
+// Biểu tượng cho nhãn của từng chức năng (nhãn khai trong data/features.js).
+const TAG_ICONS = {
+  "Nghe hiểu": <HeadphoneIcon />,
+  "Bài tập dạng đề HSK": <HskExerciseIcon />,
+  "Luyện nói": <MicIcon />,
+  "AI chấm điểm": <SparkleIcon />,
+  "Slide bài giảng": <SlidesIcon />,
+  "Theo từng khoá học": <BookIcon />,
+};
 
 export default function FeatureSelectPage() {
-  const primary = features.find((f) => f.available);
+  // MỌI chức năng đang mở, không chỉ cái đầu tiên — trước đây dùng find() nên
+  // chức năng thứ hai trở đi lặng lẽ biến mất khỏi trang.
+  const available = features.filter((f) => f.available);
   const locked = features.filter((f) => !f.available);
 
   return (
@@ -46,48 +51,54 @@ export default function FeatureSelectPage() {
         </div>
 
         <div className="space-y-4">
-          {/* Card chính - miễn phí, đang mở */}
-          {primary && (
+          {/* Các chức năng đang mở */}
+          {available.map((feature) => (
             <Link
-              to={primary.route}
+              key={feature.id}
+              to={feature.route}
               className="flex items-center gap-5 bg-white rounded-2xl border border-orange-200 p-5 shadow-[0_10px_28px_-8px_rgba(230,168,0,0.3)] hover:border-primary transition"
             >
-              <ThumbnailImage
-                src={primary.thumbnail}
-                alt={primary.name}
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shrink-0"
-              />
+              {feature.thumbnail ? (
+                <ThumbnailImage
+                  src={feature.thumbnail}
+                  alt={feature.name}
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shrink-0"
+                />
+              ) : (
+                <span className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl shrink-0 bg-gradient-to-br from-amber-300 to-orange-400 text-white flex items-center justify-center">
+                  <SlidesIcon size={40} />
+                </span>
+              )}
 
               <div className="flex-1 min-w-0">
                 <p className="text-lg font-heading font-semibold text-gray-900">
-                  {primary.name} ✨
+                  {feature.name} ✨
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  {primary.description}
+                  {feature.description}
                 </p>
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {PRIMARY_TAGS.map((tag) => (
-                    <span
-                      key={tag.label}
-                      className="inline-flex items-center gap-1.5 text-xs font-medium bg-amber-50 text-gray-700 border border-amber-100 px-3 py-1.5 rounded-full"
-                    >
-                      {tag.icon}
-                      {tag.label}
-                    </span>
-                  ))}
-                </div>
+                {feature.tags?.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {feature.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium bg-amber-50 text-gray-700 border border-amber-100 px-3 py-1.5 rounded-full"
+                      >
+                        {TAG_ICONS[tag]}
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col items-center gap-3 shrink-0">
-                {/* <span className="inline-flex items-center gap-1 text-xs font-medium bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-full">
-                  <CrownIcon /> Miễn phí
-                </span> */}
                 <span className="w-10 h-10 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 flex items-center justify-center text-white">
                   <ArrowRightIcon />
                 </span>
               </div>
             </Link>
-          )}
+          ))}
 
           {/* Các card đang phát triển - cần nâng cấp */}
           {locked.map((feature) => {
@@ -243,6 +254,25 @@ function LockIcon() {
     >
       <rect x="4" y="10" width="16" height="10" rx="2" />
       <path d="M8 10V7a4 4 0 018 0v3" />
+    </svg>
+  );
+}
+
+function SlidesIcon({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M12 16v4M8 20h8" strokeLinecap="round" />
+      <path d="M7 9h6M7 12h4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function BookIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4 4.5A2.5 2.5 0 016.5 2H20v18H6.5A2.5 2.5 0 004 22z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 17.5h16" strokeLinecap="round" />
     </svg>
   );
 }

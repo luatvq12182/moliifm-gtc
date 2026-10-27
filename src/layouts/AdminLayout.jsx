@@ -19,6 +19,16 @@ const NAV_ITEMS = [
       { to: "/admin/gtc/lessons", label: "Bài học", available: true },
     ],
   },
+  {
+    type: "group",
+    label: "Học liệu khoá học",
+    icon: <SlidesIcon />,
+    children: [
+      { to: "/admin/materials/courses", label: "Khoá học liệu", available: true },
+      { to: "/admin/materials/decks", label: "Bộ slide", available: true },
+      { to: "/admin/materials/access", label: "Cấp quyền", available: true },
+    ],
+  },
 ];
 
 export default function AdminLayout() {
@@ -292,6 +302,15 @@ function ChevronIcon({ open }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function SlidesIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M12 16v4M8 20h8" strokeLinecap="round" />
     </svg>
   );
 }

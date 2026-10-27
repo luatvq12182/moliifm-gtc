@@ -78,6 +78,9 @@ async function apiFetch(path, options = {}) {
         }
         const err = new Error(data?.message || `Lỗi ${res.status}`)
         err.status = res.status
+        // Mã riêng của máy chủ (vd. MATERIAL_COURSE_IN_USE) để giao diện xử lý
+        // đúng từng ca, không phải đoán theo câu chữ tiếng Việt.
+        err.code = data?.code
         throw err
     }
 
@@ -152,6 +155,42 @@ async function apiBlob(path) {
     return res.blob()
 }
 
+/**
+ * Gửi form nhiều trường (kèm file) VÀ báo tiến trình tải lên.
+ *
+ * Dùng XMLHttpRequest vì fetch không báo được tiến trình tải LÊN — mà file
+ * slide có thể vài chục MB, admin cần thấy đang lên tới đâu thay vì nhìn một
+ * nút xoay vô định.
+ */
+function apiUploadForm(path, formData, { method = 'POST', onProgress } = {}) {
+    const token = getToken(path)
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open(method, `${API_URL}${path}`)
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+        if (onProgress) {
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
+            }
+        }
+        xhr.onload = () => {
+            let data = null
+            try {
+                data = JSON.parse(xhr.responseText)
+            } catch {
+                // để null
+            }
+            if (xhr.status >= 200 && xhr.status < 300) return resolve(data)
+            const err = new Error(data?.message || `Lỗi ${xhr.status}`)
+            err.status = xhr.status
+            err.code = data?.code
+            reject(err)
+        }
+        xhr.onerror = () => reject(new Error('Mất kết nối khi đang tải file lên. Kiểm tra mạng rồi thử lại.'))
+        xhr.send(formData)
+    })
+}
+
 export const api = {
     get: (path) => apiFetch(path, { method: 'GET' }),
     post: (path, body) => apiFetch(path, { method: 'POST', body }),
@@ -164,4 +203,5 @@ export const api = {
     upload: (path, file, fieldName) => apiUpload(path, file, fieldName),
     uploadBlob: (path, file, fieldName) => apiUploadBlob(path, file, fieldName),
     blob: (path) => apiBlob(path),
+    uploadForm: (path, formData, opts) => apiUploadForm(path, formData, opts),
 }

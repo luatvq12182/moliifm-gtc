@@ -16,6 +16,12 @@ import AdminLessonsPage from "./pages/admin/AdminLessonsPage.jsx";
 import AdminLessonEditPage from "./pages/admin/AdminLessonEditPage.jsx";
 import CurriculumSelectPage from "./pages/CurriculumSelectPage.jsx";
 import ProtectedStudentRoute from "./components/ProtectedStudentRoute.jsx";
+import MaterialCourseSelectPage from "./pages/materials/MaterialCourseSelectPage.jsx";
+import MaterialDeckListPage from "./pages/materials/MaterialDeckListPage.jsx";
+import MaterialViewerPage from "./pages/materials/MaterialViewerPage.jsx";
+import AdminMaterialCoursesPage from "./pages/admin/materials/AdminMaterialCoursesPage.jsx";
+import AdminMaterialDecksPage from "./pages/admin/materials/AdminMaterialDecksPage.jsx";
+import AdminMaterialAccessPage from "./pages/admin/materials/AdminMaterialAccessPage.jsx";
 
 export default function App() {
   return (
@@ -80,6 +86,30 @@ export default function App() {
       />
 
       <Route
+        path="/hoc-lieu"
+        element={
+          <ProtectedStudentRoute>
+            <MaterialCourseSelectPage />
+          </ProtectedStudentRoute>
+        }
+      />
+      <Route
+        path="/hoc-lieu/:courseSlug"
+        element={
+          <ProtectedStudentRoute>
+            <MaterialDeckListPage />
+          </ProtectedStudentRoute>
+        }
+      />
+      <Route
+        path="/hoc-lieu/:courseSlug/:deckId"
+        element={
+          <ProtectedStudentRoute>
+            <MaterialViewerPage />
+          </ProtectedStudentRoute>
+        }
+      />
+      <Route
         path="/doi-mat-khau"
         element={
           <ProtectedStudentRoute>
@@ -102,6 +132,9 @@ export default function App() {
         <Route path="gtc/lessons" element={<AdminLessonsPage />} />
         <Route path="gtc/lessons/new" element={<AdminLessonEditPage />} />
         <Route path="gtc/lessons/:id/edit" element={<AdminLessonEditPage />} />
+        <Route path="materials/courses" element={<AdminMaterialCoursesPage />} />
+        <Route path="materials/decks" element={<AdminMaterialDecksPage />} />
+        <Route path="materials/access" element={<AdminMaterialAccessPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
