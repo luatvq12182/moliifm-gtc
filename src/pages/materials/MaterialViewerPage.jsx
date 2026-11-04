@@ -10,10 +10,6 @@ export default function MaterialViewerPage() {
   const { data: deck, isLoading, isError, error } = useMyDeck(deckId);
   const pagePath = useCallback((n) => myDeckPagePath(deckId, n), [deckId]);
 
-  // Watermark: ai chụp màn hình phát tán thì vẫn biết là tài khoản nào.
-  // Tên + số điện thoại do máy chủ trả kèm bộ slide.
-  const watermark = [deck?.viewer?.name, deck?.viewer?.phone].filter(Boolean).join(" · ");
-
   return (
     <div className="min-h-screen">
       <SiteHeader
@@ -36,7 +32,7 @@ export default function MaterialViewerPage() {
         {deck && (
           <div className="bg-white rounded-2xl border border-gray-200 p-3 sm:p-4">
             {/* key theo version: giảng viên thay file thì dựng lại, không giữ ảnh cũ. */}
-            <SlideViewer key={`${deck._id}-${deck.version}`} pages={deck.pages} pagePath={pagePath} watermark={watermark} />
+            <SlideViewer key={`${deck._id}-${deck.version}`} pages={deck.pages} pagePath={pagePath} />
           </div>
         )}
       </main>

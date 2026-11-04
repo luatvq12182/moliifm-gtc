@@ -395,7 +395,7 @@ export default function AdminMaterialDecksPage() {
                 Đóng ✕
               </button>
             </div>
-            <SlideViewer key={`${previewing._id}-${previewing.version}`} pages={previewing.pages} pagePath={previewPath} watermark="" />
+            <SlideViewer key={`${previewing._id}-${previewing.version}`} pages={previewing.pages} pagePath={previewPath} />
           </div>
         </div>
       )}

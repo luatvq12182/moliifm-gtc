@@ -9,8 +9,6 @@ import { api } from "../../lib/apiClient.js";
  *    trong bộ nhớ. Không có đường dẫn ảnh nào để chia sẻ, file gốc (hay link
  *    Google Slides) không bao giờ xuống trình duyệt.
  *  - Chặn chuột phải, kéo-thả ảnh, nhấn giữ để lưu ảnh trên điện thoại.
- *  - Watermark tên + số điện thoại người xem đè lên slide: ai chụp màn hình
- *    rồi phát tán thì vẫn truy ra được.
  * KHÔNG chặn được chụp màn hình — không trang web nào chặn được.
  *
  * Hai chế độ: XEM (trong trang) và TRÌNH CHIẾU (toàn màn hình nền đen, bấm
@@ -18,11 +16,10 @@ import { api } from "../../lib/apiClient.js";
  *
  * @param pages      [{ width, height }] — để giữ đúng tỉ lệ khung khi ảnh chưa tải
  * @param pagePath   (n) => đường dẫn API của ảnh trang n (đếm từ 1)
- * @param watermark  chuỗi đè lên slide (để trống = không đè)
  */
 const IDLE_MS = 2500;
 
-export default function SlideViewer({ pages, pagePath, watermark }) {
+export default function SlideViewer({ pages, pagePath }) {
   const total = pages.length;
   const [index, setIndex] = useState(0);
   const [urls, setUrls] = useState({});
@@ -166,7 +163,6 @@ export default function SlideViewer({ pages, pagePath, watermark }) {
         </div>
       )}
 
-      {watermark && <Watermark text={watermark} />}
 
       {/* Chế độ xem: vùng bấm lật trang ở hai mép — tiện trên điện thoại. */}
       {!presenting && (
@@ -381,26 +377,6 @@ function IconButton({ label, onClick, disabled, children }) {
     >
       {children}
     </button>
-  );
-}
-
-/** Lặp chữ chéo mờ khắp slide. Đủ mờ để không cản đọc, đủ dày để không cắt bỏ được. */
-function Watermark({ text }) {
-  return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-      <div className="absolute -inset-1/2 flex flex-wrap content-start gap-x-16 gap-y-12 -rotate-[24deg]">
-        {/* Đủ nhiều để phủ kín cả khi trình chiếu trên màn hình lớn. */}
-        {Array.from({ length: 480 }, (_, i) => (
-          <span
-            key={i}
-            className="text-[13px] font-semibold whitespace-nowrap text-gray-900/[0.09]"
-            style={{ textShadow: "0 0 1px rgba(255,255,255,0.35)" }}
-          >
-            {text}
-          </span>
-        ))}
-      </div>
-    </div>
   );
 }
 

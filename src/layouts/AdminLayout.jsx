@@ -26,6 +26,7 @@ const NAV_ITEMS = [
     children: [
       { to: "/admin/materials/courses", label: "Khoá học liệu", available: true },
       { to: "/admin/materials/decks", label: "Bộ slide", available: true },
+      { to: "/admin/materials/videos", label: "Video bài giảng", available: true },
       { to: "/admin/materials/access", label: "Cấp quyền", available: true },
     ],
   },
