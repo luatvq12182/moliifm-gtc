@@ -45,7 +45,9 @@ export default function MaterialCourseSelectPage() {
               <div className="p-3 sm:p-4">
                 <p className="text-base sm:text-lg font-heading font-semibold text-gray-900">{c.name}</p>
                 {c.description && <p className="text-sm text-gray-500 mt-1 line-clamp-2">{c.description}</p>}
-                <p className="text-xs text-primary-dark font-medium mt-2">{c.deckCount} bài giảng</p>
+                <p className="text-xs text-primary-dark font-medium mt-2">
+                  {[c.deckCount > 0 && `${c.deckCount} slide`, c.videoCount > 0 && `${c.videoCount} video`].filter(Boolean).join(" · ") || "Chưa có bài giảng"}
+                </p>
               </div>
             </Link>
           ))}

@@ -39,11 +39,27 @@ export function useMyDeck(id) {
 /** Đường dẫn ảnh một trang (n đếm từ 1) — phía học viên. */
 export const myDeckPagePath = (deckId, n) => `/materials/decks/${deckId}/pages/${n}`
 
+export function useMyVideo(id) {
+    return useQuery({
+        queryKey: [...MATERIALS_KEY, 'video', id],
+        queryFn: () => api.get(`/materials/videos/${id}`),
+        enabled: Boolean(id),
+        // Mở lại video phải lấy chỗ đang xem MỚI NHẤT, không dùng bản cũ trong bộ nhớ.
+        staleTime: 0,
+        gcTime: 0,
+        retry: (count, err) => err?.status !== 403 && err?.status !== 404 && count < 2,
+    })
+}
+
+export const myVideoThumbPath = (videoId) => `/materials/videos/${videoId}/thumb`
+export const myVideoProgressPath = (videoId) => `/materials/videos/${videoId}/progress`
+
 // ---------- quản trị ----------
 
 export const adminCoursesKey = () => [...ADMIN_MATERIALS_KEY, 'courses']
 export const adminDecksKey = (courseId) => [...ADMIN_MATERIALS_KEY, 'decks', courseId]
 export const adminAccessKey = (params) => [...ADMIN_MATERIALS_KEY, 'access', params]
+export const adminVideosKey = (courseId) => [...ADMIN_MATERIALS_KEY, 'videos', courseId]
 
 /** Đường dẫn ảnh một trang — phía quản trị (xem trước). */
 export const adminDeckPagePath = (deckId, n) => `/admin/materials/decks/${deckId}/pages/${n}`
@@ -124,6 +140,29 @@ export const useDeleteDeck = () => useInvalidatingMutation((id) => api.del(`/adm
 
 export const useReorderDecks = () =>
     useInvalidatingMutation(({ courseId, ids }) => api.put('/admin/materials/decks/reorder', { courseId, ids }))
+
+// ---------- video bài giảng (quản trị) ----------
+
+export const adminVideoThumbPath = (videoId) => `/admin/materials/videos/${videoId}/thumb`
+
+export function useAdminVideos(courseId) {
+    return useQuery({
+        queryKey: adminVideosKey(courseId),
+        queryFn: () => api.get(`/admin/materials/videos?courseId=${courseId}`),
+        enabled: Boolean(courseId),
+    })
+}
+
+/** Thêm video từ link YouTube — máy chủ đọc tên + thời lượng ngay. */
+export const useAddVideo = () => useInvalidatingMutation((payload) => api.post('/admin/materials/videos', payload))
+
+export const useUpdateVideo = () =>
+    useInvalidatingMutation(({ id, payload }) => api.put(`/admin/materials/videos/${id}`, payload))
+
+export const useDeleteVideo = () => useInvalidatingMutation((id) => api.del(`/admin/materials/videos/${id}`))
+
+export const useReorderVideos = () =>
+    useInvalidatingMutation(({ courseId, ids }) => api.put('/admin/materials/videos/reorder', { courseId, ids }))
 
 export function useMaterialAccess(params) {
     const { courseId, scope, search, page, limit } = params

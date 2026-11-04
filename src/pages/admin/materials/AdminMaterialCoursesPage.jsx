@@ -89,8 +89,11 @@ export default function AdminMaterialCoursesPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <Link to={`/admin/materials/decks?courseId=${c._id}`} className="text-primary-dark hover:underline">
+                    <Link to={`/admin/materials/decks?courseId=${c._id}`} className="block text-primary-dark hover:underline">
                       {c.deckCount} bộ slide
+                    </Link>
+                    <Link to={`/admin/materials/videos?courseId=${c._id}`} className="block text-primary-dark hover:underline">
+                      {c.videoCount || 0} video
                     </Link>
                   </td>
                   <td className="px-4 py-3">

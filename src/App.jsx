@@ -19,9 +19,11 @@ import ProtectedStudentRoute from "./components/ProtectedStudentRoute.jsx";
 import MaterialCourseSelectPage from "./pages/materials/MaterialCourseSelectPage.jsx";
 import MaterialDeckListPage from "./pages/materials/MaterialDeckListPage.jsx";
 import MaterialViewerPage from "./pages/materials/MaterialViewerPage.jsx";
+import MaterialVideoPage from "./pages/materials/MaterialVideoPage.jsx";
 import AdminMaterialCoursesPage from "./pages/admin/materials/AdminMaterialCoursesPage.jsx";
 import AdminMaterialDecksPage from "./pages/admin/materials/AdminMaterialDecksPage.jsx";
 import AdminMaterialAccessPage from "./pages/admin/materials/AdminMaterialAccessPage.jsx";
+import AdminMaterialVideosPage from "./pages/admin/materials/AdminMaterialVideosPage.jsx";
 
 export default function App() {
   return (
@@ -102,6 +104,14 @@ export default function App() {
         }
       />
       <Route
+        path="/hoc-lieu/:courseSlug/video/:videoId"
+        element={
+          <ProtectedStudentRoute>
+            <MaterialVideoPage />
+          </ProtectedStudentRoute>
+        }
+      />
+      <Route
         path="/hoc-lieu/:courseSlug/:deckId"
         element={
           <ProtectedStudentRoute>
@@ -134,6 +144,7 @@ export default function App() {
         <Route path="gtc/lessons/:id/edit" element={<AdminLessonEditPage />} />
         <Route path="materials/courses" element={<AdminMaterialCoursesPage />} />
         <Route path="materials/decks" element={<AdminMaterialDecksPage />} />
+        <Route path="materials/videos" element={<AdminMaterialVideosPage />} />
         <Route path="materials/access" element={<AdminMaterialAccessPage />} />
       </Route>
 
