@@ -20,10 +20,13 @@ import MaterialCourseSelectPage from "./pages/materials/MaterialCourseSelectPage
 import MaterialDeckListPage from "./pages/materials/MaterialDeckListPage.jsx";
 import MaterialViewerPage from "./pages/materials/MaterialViewerPage.jsx";
 import MaterialVideoPage from "./pages/materials/MaterialVideoPage.jsx";
+import MaterialExercisePage from "./pages/materials/MaterialExercisePage.jsx";
 import AdminMaterialCoursesPage from "./pages/admin/materials/AdminMaterialCoursesPage.jsx";
 import AdminMaterialDecksPage from "./pages/admin/materials/AdminMaterialDecksPage.jsx";
 import AdminMaterialAccessPage from "./pages/admin/materials/AdminMaterialAccessPage.jsx";
 import AdminMaterialVideosPage from "./pages/admin/materials/AdminMaterialVideosPage.jsx";
+import AdminMaterialExercisePage from "./pages/admin/materials/AdminMaterialExercisePage.jsx";
+import AdminAiGradingPage from "./pages/admin/materials/AdminAiGradingPage.jsx";
 
 export default function App() {
   return (
@@ -104,6 +107,14 @@ export default function App() {
         }
       />
       <Route
+        path="/hoc-lieu/:courseSlug/bai-tap"
+        element={
+          <ProtectedStudentRoute>
+            <MaterialExercisePage />
+          </ProtectedStudentRoute>
+        }
+      />
+      <Route
         path="/hoc-lieu/:courseSlug/video/:videoId"
         element={
           <ProtectedStudentRoute>
@@ -145,7 +156,9 @@ export default function App() {
         <Route path="materials/courses" element={<AdminMaterialCoursesPage />} />
         <Route path="materials/decks" element={<AdminMaterialDecksPage />} />
         <Route path="materials/videos" element={<AdminMaterialVideosPage />} />
+        <Route path="materials/courses/:courseId/exercise" element={<AdminMaterialExercisePage />} />
         <Route path="materials/access" element={<AdminMaterialAccessPage />} />
+        <Route path="materials/ai-grading" element={<AdminAiGradingPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

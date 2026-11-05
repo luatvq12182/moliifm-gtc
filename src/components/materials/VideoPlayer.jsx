@@ -1,5 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import AuthImage from "./AuthImage.jsx";
+
+/** Gộp các đoạn [từ, đến] chồng / sát nhau. */
+export function mergeIntervals(list) {
+  const sorted = (list || []).filter((x) => x && x[1] > x[0]).map(([a, b]) => [a, b]).sort((x, y) => x[0] - y[0]);
+  const out = [];
+  for (const [a, b] of sorted) {
+    const last = out[out.length - 1];
+    if (last && a <= last[1] + 1) last[1] = Math.max(last[1], b);
+    else out.push([a, b]);
+  }
+  return out;
+}
 
 export function formatTime(sec) {
   const s = Math.max(0, Math.floor(sec || 0));
@@ -54,12 +66,25 @@ function loadYouTubeApi() {
  * @param youtubeId   mã video
  * @param thumbPath   đường dẫn API ảnh bìa (rỗng = nền đen)
  * @param startAt     giây bắt đầu — chỗ học viên đang xem dở (0 = từ đầu)
- * @param onProgress  ({ position, duration, ended }, { keepalive }) — báo chỗ
- *                    đang xem: mỗi 10 giây khi đang phát, khi dừng, khi hết,
- *                    khi rời trang. Bỏ trống = không báo (admin xem trước).
+ * ĐẾM THỜI LƯỢNG ĐÃ XEM (khách: phải xem đủ video mới làm bài tập, tua tới
+ * cuối không tính): mỗi 1/4 giây so thời gian video với thời gian thực —
+ * video chạy đều (đúng tốc độ phát) thì nối vào đoạn đang xem; nhảy cóc (tua)
+ * thì mở đoạn mới. Các đoạn gửi lên máy chủ kèm mỗi lần báo tiến độ; máy chủ
+ * gộp và giới hạn lại (gtc-api lib/watchCoverage.js).
+ *
+ * @param onProgress  ({ position, duration, segments }, { keepalive }) — báo
+ *                    chỗ đang xem + các đoạn vừa phát: mỗi 10 giây khi đang
+ *                    phát, khi dừng, khi hết, khi rời trang. Trả Promise thì
+ *                    lỗi sẽ được gửi lại ở lần sau. Bỏ trống = không báo.
+ * @param watched     [[từ, đến], ...] các đoạn đã xem từ trước (tô thanh tua)
+ * @param onWatchedChange (giây đã xem) — để trang hiện % đã xem ngay lập tức
  * @param onDuration  (giây) — gọi một lần khi biết thời lượng video.
+ * ref: { seekTo(giây), play(), firstUnwatched() } — cho nút "Xem đoạn chưa xem" ở ngoài trình phát.
  */
-export default function VideoPlayer({ youtubeId, title = "", thumbPath = "", startAt = 0, onProgress, onDuration }) {
+const VideoPlayer = forwardRef(function VideoPlayer(
+  { youtubeId, title = "", thumbPath = "", startAt = 0, watched = [], onProgress, onWatchedChange, onDuration },
+  ref,
+) {
   const boxRef = useRef(null);
   const mountRef = useRef(null);
   const playerRef = useRef(null);
@@ -74,6 +99,17 @@ export default function VideoPlayer({ youtubeId, title = "", thumbPath = "", sta
   useEffect(() => {
     onDurationRef.current = onDuration;
   }, [onDuration]);
+  const onWatchedRef = useRef(onWatchedChange);
+  useEffect(() => {
+    onWatchedRef.current = onWatchedChange;
+  }, [onWatchedChange]);
+
+  // Đoạn đang phát dở { start, last, wall }, các đoạn chưa gửi, và mọi đoạn
+  // đã xem (cũ + mới) để tô thanh tua.
+  const openRef = useRef(null);
+  const pendingRef = useRef([]);
+  const allWatchedRef = useRef(mergeIntervals(watched));
+  const [watchedView, setWatchedView] = useState(() => mergeIntervals(watched));
 
   const [ready, setReady] = useState(false);
   const [state, setState] = useState(-1);
@@ -92,15 +128,34 @@ export default function VideoPlayer({ youtubeId, title = "", thumbPath = "", sta
   const playing = state === 1 || state === 3;
   const ended = state === 0;
 
-  const report = useCallback((extra = {}, opts = {}) => {
-    const p = playerRef.current;
-    if (!p || !startedRef.current || !onProgressRef.current) return;
-    const position = p.getCurrentTime?.() || 0;
-    const dur = p.getDuration?.() || 0;
-    if (!extra.ended && Math.abs(position - lastSentRef.current) < 1) return;
-    lastSentRef.current = position;
-    onProgressRef.current({ position, duration: dur, ...extra }, opts);
+  // Chốt đoạn đang phát dở vào danh sách chờ gửi. `keepOpen`: video vẫn đang
+  // chạy -> đoạn tiếp theo nối từ chỗ vừa chốt.
+  const flushOpen = useCallback((keepOpen) => {
+    const o = openRef.current;
+    if (!o) return;
+    if (o.last - o.start > 0.2) pendingRef.current.push([o.start, o.last]);
+    openRef.current = keepOpen ? { ...o, start: o.last } : null;
   }, []);
+
+  const report = useCallback(
+    (opts = {}) => {
+      const p = playerRef.current;
+      if (!p || !startedRef.current || !onProgressRef.current) return;
+      flushOpen(true);
+      const position = p.getCurrentTime?.() || 0;
+      const dur = p.getDuration?.() || 0;
+      const segments = pendingRef.current;
+      if (!segments.length && Math.abs(position - lastSentRef.current) < 1) return;
+      pendingRef.current = [];
+      lastSentRef.current = position;
+      const sent = onProgressRef.current({ position, duration: dur, segments }, opts);
+      // Gửi lỗi (mất mạng) -> giữ lại các đoạn, gửi kèm lần sau.
+      Promise.resolve(sent).catch(() => {
+        pendingRef.current = [...segments, ...pendingRef.current];
+      });
+    },
+    [flushOpen],
+  );
 
   // Dựng trình phát YouTube. Khung <div> cho YouTube tạo bằng tay (không do
   // React quản) vì YouTube thay nó bằng <iframe>.
@@ -155,7 +210,7 @@ export default function VideoPlayer({ youtubeId, title = "", thumbPath = "", sta
       .catch(() => !cancelled && setError("load"));
     return () => {
       cancelled = true;
-      report({}, { keepalive: true });
+      report({ keepalive: true });
       try {
         player?.destroy();
       } catch {
@@ -171,23 +226,54 @@ export default function VideoPlayer({ youtubeId, title = "", thumbPath = "", sta
     if (durationKnown) onDurationRef.current?.(playerRef.current?.getDuration?.() || 0);
   }, [durationKnown]);
 
-  // Đọc thời gian đang phát.
+  // Đọc thời gian đang phát + ghi đoạn đang xem.
   useEffect(() => {
     if (!ready) return undefined;
+    let lastWatchedSec = -1;
     const id = setInterval(() => {
       const p = playerRef.current;
       if (!p?.getCurrentTime) return;
-      setTime(p.getCurrentTime() || 0);
+      const cur = p.getCurrentTime() || 0;
+      setTime(cur);
       const d = p.getDuration() || 0;
       if (d) setDuration(d);
+
+      if (p.getPlayerState?.() !== 1) {
+        flushOpen(false);
+        return;
+      }
+      const now = performance.now();
+      const o = openRef.current;
+      if (o) {
+        const delta = cur - o.last;
+        // So với thời gian thực (tab ẩn thì bộ đếm giờ chạy thưa, vẫn đúng).
+        const allowed = ((now - o.wall) / 1000) * (p.getPlaybackRate?.() || 1) * 1.25 + 0.75;
+        if (delta > 0 && delta <= allowed) {
+          o.last = cur;
+          o.wall = now;
+        } else {
+          flushOpen(false); // nhảy cóc = tua -> mở đoạn mới
+          openRef.current = { start: cur, last: cur, wall: now };
+        }
+      } else {
+        openRef.current = { start: cur, last: cur, wall: now };
+      }
+      const open = openRef.current;
+      const merged = mergeIntervals([...allWatchedRef.current, ...pendingRef.current, [open.start, open.last]]);
+      allWatchedRef.current = merged;
+      const sec = Math.floor(merged.reduce((sum, [a, b]) => sum + (b - a), 0));
+      if (sec !== lastWatchedSec) {
+        lastWatchedSec = sec;
+        setWatchedView(merged);
+        onWatchedRef.current?.(sec);
+      }
     }, 250);
     return () => clearInterval(id);
-  }, [ready]);
+  }, [ready, flushOpen]);
 
   // Trạng thái phát đổi -> báo tiến độ.
   useEffect(() => {
-    if (state === 2) report();
-    if (state === 0) report({ ended: true });
+    if (state === 2 || state === 0) report();
     if (state !== 1) return undefined;
     const id = setInterval(() => report(), 10000);
     return () => clearInterval(id);
@@ -195,7 +281,7 @@ export default function VideoPlayer({ youtubeId, title = "", thumbPath = "", sta
 
   // Rời trang / chuyển tab / khoá máy -> lưu ngay.
   useEffect(() => {
-    const flush = () => report({}, { keepalive: true });
+    const flush = () => report({ keepalive: true });
     const onVisibility = () => document.visibilityState === "hidden" && flush();
     window.addEventListener("pagehide", flush);
     document.addEventListener("visibilitychange", onVisibility);
@@ -227,16 +313,40 @@ export default function VideoPlayer({ youtubeId, title = "", thumbPath = "", sta
     else play();
   }, [play]);
 
+  // Đích tua gần nhất: ngay sau khi tua, YouTube có lúc vẫn trả vị trí cũ ->
+  // bấm tới / lùi liên tục thì cộng dồn từ đích trước, không bị hụt.
+  const lastSeekRef = useRef(null);
   const seekTo = useCallback((sec, commit = true) => {
     const p = playerRef.current;
     if (!p) return;
     const d = p.getDuration() || 0;
     const t = Math.max(0, d ? Math.min(sec, d - 0.5) : sec);
     p.seekTo(t, commit);
+    lastSeekRef.current = { t, at: performance.now() };
     setTime(t);
   }, []);
 
-  const seekBy = useCallback((delta) => seekTo((playerRef.current?.getCurrentTime() || 0) + delta), [seekTo]);
+  const seekBy = useCallback(
+    (delta) => {
+      const last = lastSeekRef.current;
+      const base = last && performance.now() - last.at < 1200 ? last.t : playerRef.current?.getCurrentTime() || 0;
+      seekTo(base + delta);
+    },
+    [seekTo],
+  );
+
+  // Chỗ bắt đầu của đoạn CHƯA XEM đầu tiên (giây), null nếu đã xem hết.
+  const firstUnwatched = useCallback(() => {
+    const d = playerRef.current?.getDuration?.() || 0;
+    let cur = 0;
+    for (const [a, b] of allWatchedRef.current) {
+      if (a > cur + 1) break;
+      cur = Math.max(cur, b);
+    }
+    return d && cur >= d - 2 ? null : cur;
+  }, []);
+
+  useImperativeHandle(ref, () => ({ seekTo, play, firstUnwatched }), [seekTo, play, firstUnwatched]);
 
   const restart = () => {
     seekTo(0);
@@ -431,6 +541,18 @@ export default function VideoPlayer({ youtubeId, title = "", thumbPath = "", sta
                 : "linear-gradient(to top, #000 0%, #000 62%, transparent)",
             }}
           >
+            {/* Thanh tua: nền tối, các đoạn ĐÃ XEM tô sáng, chấm vàng là chỗ đang phát. */}
+            <div className="relative h-4 flex items-center">
+              <div className="absolute inset-x-0 h-1.5 rounded-full bg-white/25 overflow-hidden pointer-events-none">
+                {duration > 0 &&
+                  watchedView.map(([a, b]) => (
+                    <span
+                      key={a}
+                      className="absolute inset-y-0 bg-white/70"
+                      style={{ left: `${(a / duration) * 100}%`, width: `${(Math.min(b, duration) - a) / duration * 100}%` }}
+                    />
+                  ))}
+              </div>
             <input
               type="range"
               min={0}
@@ -451,8 +573,15 @@ export default function VideoPlayer({ youtubeId, title = "", thumbPath = "", sta
                 setDragTime(null);
               }}
               aria-label="Tua video"
-              className="w-full h-1.5 accent-amber-400 cursor-pointer block"
+              className={
+                "relative w-full h-4 appearance-none bg-transparent cursor-pointer block " +
+                "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 " +
+                "[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-amber-400 [&::-webkit-slider-thumb]:shadow " +
+                "[&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:border-0 " +
+                "[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-amber-400"
+              }
             />
+            </div>
             <div className="flex items-center gap-1 sm:gap-2 mt-1.5">
               <CtrlButton label={playing ? "Dừng (phím K)" : "Phát (phím K)"} onClick={toggle}>
                 {playing ? <PauseIcon /> : <PlayIcon size={20} />}
@@ -501,7 +630,9 @@ export default function VideoPlayer({ youtubeId, title = "", thumbPath = "", sta
       </div>
     </div>
   );
-}
+});
+
+export default VideoPlayer;
 
 function CtrlButton({ label, onClick, children }) {
   return (

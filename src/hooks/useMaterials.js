@@ -54,6 +54,34 @@ export function useMyVideo(id) {
 export const myVideoThumbPath = (videoId) => `/materials/videos/${videoId}/thumb`
 export const myVideoProgressPath = (videoId) => `/materials/videos/${videoId}/progress`
 
+/** Bài tập của khoá. Chưa xem đủ mọi video của khoá -> lỗi 403 mã VIDEO_NOT_WATCHED. */
+export function useMyExercise(courseSlug) {
+    return useQuery({
+        queryKey: [...MATERIALS_KEY, 'exercise', courseSlug],
+        queryFn: () => api.get(`/materials/courses/${courseSlug}/exercise`),
+        enabled: Boolean(courseSlug),
+        staleTime: 0,
+        retry: (count, err) => ![403, 404].includes(err?.status) && count < 2,
+    })
+}
+
+/** Nộp bài — máy chủ chấm ngay (phần đặt câu do AI chấm, mất vài giây). */
+export function useSubmitExercise(courseSlug) {
+    const qc = useQueryClient()
+    return useMutation({
+        mutationFn: (answers) => api.post(`/materials/courses/${courseSlug}/exercise/attempts`, { answers }),
+        onSuccess: () => qc.invalidateQueries({ queryKey: MATERIALS_KEY }),
+    })
+}
+
+export function useRegradeAttempt() {
+    const qc = useQueryClient()
+    return useMutation({
+        mutationFn: (attemptId) => api.post(`/materials/exercise-attempts/${attemptId}/regrade`, {}),
+        onSuccess: () => qc.invalidateQueries({ queryKey: MATERIALS_KEY }),
+    })
+}
+
 // ---------- quản trị ----------
 
 export const adminCoursesKey = () => [...ADMIN_MATERIALS_KEY, 'courses']
@@ -160,6 +188,36 @@ export const useUpdateVideo = () =>
     useInvalidatingMutation(({ id, payload }) => api.put(`/admin/materials/videos/${id}`, payload))
 
 export const useDeleteVideo = () => useInvalidatingMutation((id) => api.del(`/admin/materials/videos/${id}`))
+
+/** Đề bài tập của một khoá (kèm đáp án) — trang soạn bài tập. */
+export function useAdminExercise(courseId) {
+    return useQuery({
+        queryKey: [...ADMIN_MATERIALS_KEY, 'exercise', courseId],
+        queryFn: () => api.get(`/admin/materials/courses/${courseId}/exercise`),
+        enabled: Boolean(courseId),
+        staleTime: 0,
+    })
+}
+
+export const useSaveExercise = () =>
+    useInvalidatingMutation(({ courseId, sections }) => api.put(`/admin/materials/courses/${courseId}/exercise`, { sections }))
+
+// ---------- cấu hình AI chấm ----------
+
+export function useAiGrading() {
+    return useQuery({
+        queryKey: [...ADMIN_MATERIALS_KEY, 'ai-grading'],
+        queryFn: () => api.get('/admin/materials/ai-grading'),
+        staleTime: 0,
+    })
+}
+
+/** Lưu { rubric?, model? } — gửi trường nào lưu trường đó. */
+export const useSaveAiGrading = () => useInvalidatingMutation((payload) => api.put('/admin/materials/ai-grading', payload))
+
+/** Chấm thử bằng hướng dẫn + model đang chọn (chưa lưu) — mỗi lần là một lượt gọi AI thật. */
+export const useTestAiGrading = () =>
+    useMutation({ mutationFn: ({ rubric, model, items }) => api.post('/admin/materials/ai-grading/test', { rubric, model, items }) })
 
 export const useReorderVideos = () =>
     useInvalidatingMutation(({ courseId, ids }) => api.put('/admin/materials/videos/reorder', { courseId, ids }))

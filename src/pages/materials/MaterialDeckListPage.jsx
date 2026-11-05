@@ -72,6 +72,8 @@ export default function MaterialDeckListPage() {
               </div>
             )}
 
+            {data.exercise && <ExerciseCard exercise={data.exercise} courseSlug={courseSlug} />}
+
             {tab === "video" && <VideoList videos={videos} courseSlug={courseSlug} />}
 
             <div className={"space-y-3" + (tab === "video" ? " hidden" : "")}>
@@ -139,6 +141,7 @@ function VideoList({ videos, courseSlug }) {
               <p className={"text-xs mt-1 " + (p?.completed ? "text-green-700 font-medium" : p ? "text-primary-dark font-medium" : "text-gray-400")}>
                 {p?.completed ? "✓ Đã xem xong" : p ? `Đã xem ${p.percent}%` : "Chưa xem"}
               </p>
+
             </div>
             <span className="hidden sm:inline-block shrink-0 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-sm font-medium px-4 py-2 rounded-full">
               {action}
@@ -146,6 +149,44 @@ function VideoList({ videos, courseSlug }) {
           </Link>
         );
       })}
+    </div>
+  );
+}
+
+/** Bài tập của khoá (mỗi khoá một bộ): khoá tới khi xem đủ mọi video. */
+function ExerciseCard({ exercise, courseSlug }) {
+  const { itemCount, totalVideos, watchedVideos, unlocked, last } = exercise;
+  const percent = totalVideos ? Math.round((watchedVideos / totalVideos) * 100) : 100;
+  return (
+    <div className={"mb-4 rounded-2xl border p-4 " + (unlocked ? "border-green-200 bg-green-50" : "border-orange-200 bg-white")}>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex-1">
+          <p className="font-medium text-gray-900">
+            {unlocked ? "📝" : "🔒"} Bài tập của khoá · {itemCount} câu
+          </p>
+          <p className="text-sm text-gray-600 mt-0.5">
+            {unlocked
+              ? last
+                ? `Lần gần nhất: điền từ đúng ${last.autoCorrect}/${last.autoTotal}` +
+                  (last.ai?.status === "done" && last.ai.total > 0 ? ` · đặt câu đạt ${last.ai.passed}/${last.ai.total}` : "")
+                : "Bạn đã xem đủ các video — làm bài tập để ôn lại nhé."
+              : `Xem đủ tất cả ${totalVideos} video để mở bài tập. Đã xem đủ ${watchedVideos}/${totalVideos} video.`}
+          </p>
+        </div>
+        {unlocked && (
+          <Link
+            to={`/hoc-lieu/${courseSlug}/bai-tap`}
+            className="shrink-0 text-center bg-gradient-to-r from-amber-400 to-orange-500 text-white font-medium px-5 py-2.5 rounded-full"
+          >
+            {last ? "Xem kết quả / làm lại" : "Làm bài tập →"}
+          </Link>
+        )}
+      </div>
+      {!unlocked && (
+        <div className="mt-3 h-2 rounded-full bg-gray-100 overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500" style={{ width: `${percent}%` }} />
+        </div>
+      )}
     </div>
   );
 }
