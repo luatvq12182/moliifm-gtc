@@ -95,6 +95,9 @@ export default function AdminMaterialCoursesPage() {
                     <Link to={`/admin/materials/videos?courseId=${c._id}`} className="block text-primary-dark hover:underline">
                       {c.videoCount || 0} video
                     </Link>
+                    <Link to={`/admin/materials/courses/${c._id}/exercise`} className="block text-primary-dark hover:underline">
+                      {c.exerciseCount ? `${c.exerciseCount} câu bài tập` : "+ bài tập"}
+                    </Link>
                   </td>
                   <td className="px-4 py-3">
                     <Link to={`/admin/materials/access?courseId=${c._id}`} className="text-primary-dark hover:underline">

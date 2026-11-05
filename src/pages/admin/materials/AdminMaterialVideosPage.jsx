@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   adminVideoThumbPath,
   useAddVideo,
@@ -93,7 +93,8 @@ export default function AdminMaterialVideosPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-4 space-y-3">
-        <div>
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <div>
           <label className="text-xs text-gray-500 mb-1 block">Khoá học liệu</label>
           <select value={courseId} onChange={(e) => setParams({ courseId: e.target.value })} className={input + " w-full sm:w-80"}>
             {courses.length === 0 && <option value="">Chưa có khoá — tạo ở mục “Khoá học liệu”</option>}
@@ -104,6 +105,19 @@ export default function AdminMaterialVideosPage() {
               </option>
             ))}
           </select>
+          </div>
+          {/* Mỗi khoá MỘT bộ bài tập — học viên xem hết mọi video của khoá mới làm. */}
+          {course && (
+            <Link
+              to={`/admin/materials/courses/${course._id}/exercise`}
+              className={
+                "text-sm text-center px-4 py-2 rounded-lg border " +
+                (course.exerciseCount ? "border-violet-200 bg-violet-50 text-violet-700" : "border-gray-300 hover:bg-gray-50")
+              }
+            >
+              {course.exerciseCount ? `Bài tập của khoá (${course.exerciseCount} câu)` : "+ Soạn bài tập của khoá"}
+            </Link>
+          )}
         </div>
 
         {courseId && (

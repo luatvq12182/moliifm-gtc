@@ -28,6 +28,7 @@ const NAV_ITEMS = [
       { to: "/admin/materials/decks", label: "Bộ slide", available: true },
       { to: "/admin/materials/videos", label: "Video bài giảng", available: true },
       { to: "/admin/materials/access", label: "Cấp quyền", available: true },
+      { to: "/admin/materials/ai-grading", label: "Cấu hình AI chấm", available: true },
     ],
   },
 ];

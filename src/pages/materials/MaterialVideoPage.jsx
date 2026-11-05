@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import SiteHeader from "../../components/SiteHeader.jsx";
 import VideoPlayer, { formatTime } from "../../components/materials/VideoPlayer.jsx";
@@ -8,6 +8,9 @@ import { myVideoProgressPath, myVideoThumbPath, useMyMaterialCourse, useMyVideo 
 /**
  * Học liệu khoá học — xem một video bài giảng. Lưu chỗ đang xem để lần sau mở
  * lại xem tiếp (video thường dài cỡ 1 tiếng).
+ *
+ * Bài tập là của KHOÁ: phải xem đủ TẤT CẢ video của khoá (mỗi video 95% thời
+ * lượng thực sự phát, tua không tính) mới mở — máy chủ quyết định, trang chỉ hiện.
  */
 export default function MaterialVideoPage() {
   const { courseSlug, videoId } = useParams();
@@ -15,11 +18,20 @@ export default function MaterialVideoPage() {
   const { data: courseData } = useMyMaterialCourse(courseSlug);
   const listPath = `/hoc-lieu/${courseSlug}?tab=video`;
 
-  // Lưu tiến độ: lỗi mạng thì bỏ qua — lần báo sau (10 giây nữa) sẽ ghi đè.
+  const playerRef = useRef(null);
+  const [liveSec, setLiveSec] = useState(null); // giây đã xem, tính ngay trên trình duyệt
+  const [doneNow, setDoneNow] = useState(false); // máy chủ vừa báo đã xem đủ
+
+  // Lưu tiến độ. Trả Promise: lỗi mạng thì trình phát giữ các đoạn vừa xem,
+  // gửi kèm lần sau.
   const saveProgress = useCallback(
     (body, { keepalive } = {}) => {
       const path = myVideoProgressPath(videoId);
-      (keepalive ? api.putKeepalive(path, body) : api.put(path, body)).catch(() => {});
+      if (keepalive) return api.putKeepalive(path, body);
+      return api.put(path, body).then((res) => {
+        if (res?.completed) setDoneNow(true);
+        return res;
+      });
     },
     [videoId],
   );
@@ -57,9 +69,25 @@ export default function MaterialVideoPage() {
                 title={video.title}
                 thumbPath={video.hasThumb ? myVideoThumbPath(video._id) : ""}
                 startAt={startAt}
+                watched={video.progress?.watched || []}
                 onProgress={saveProgress}
+                onWatchedChange={setLiveSec}
+                ref={playerRef}
               />
             </div>
+
+            <WatchStatus
+              video={video}
+              courseSlug={courseSlug}
+              done={doneNow || Boolean(video.progress?.completed)}
+              watchedSec={liveSec ?? video.progress?.watchedSec ?? 0}
+              onJump={() => {
+                const at = playerRef.current?.firstUnwatched();
+                if (at === null || at === undefined) return;
+                playerRef.current.seekTo(at);
+                playerRef.current.play();
+              }}
+            />
 
             <div className="mt-4">
               {index >= 0 && <p className="text-xs text-primary-dark font-medium">Video {index + 1} / {videos.length}</p>}
@@ -95,6 +123,71 @@ export default function MaterialVideoPage() {
           </>
         )}
       </main>
+    </div>
+  );
+}
+
+/** Đã xem video này bao nhiêu + tình trạng bài tập của khoá. */
+function WatchStatus({ video, courseSlug, done, watchedSec, onJump }) {
+  const duration = video.durationSec || 0;
+  const percent = done ? 100 : duration ? Math.min(99, Math.floor((watchedSec / duration) * 100)) : 0;
+  const ex = video.exercise;
+  // Video này vừa xem đủ trong lần mở trang này -> cộng ngay vào số video đã xem đủ.
+  const justDone = done && !video.progress?.completed;
+  const watchedVideos = ex ? Math.min(ex.totalVideos, ex.watchedVideos + (justDone ? 1 : 0)) : 0;
+  const unlocked = ex && watchedVideos >= ex.totalVideos;
+  const last = ex?.last;
+
+  return (
+    <div className="mt-4 rounded-2xl border border-orange-200 bg-white p-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex-1">
+          {done ? (
+            <p className="font-medium text-green-700">✓ Bạn đã xem đủ video này</p>
+          ) : (
+            <p className="text-sm text-gray-700">
+              Đã xem <b>{percent}%</b> video này{ex ? "" : "."}
+            </p>
+          )}
+        </div>
+        {!done && watchedSec > 0 && (
+          <button
+            type="button"
+            onClick={onJump}
+            className="shrink-0 text-sm font-medium px-4 py-2 rounded-full border border-orange-300 text-orange-700 hover:bg-orange-50"
+          >
+            Xem đoạn chưa xem
+          </button>
+        )}
+      </div>
+      {!done && (
+        <div className="mt-3 h-2 rounded-full bg-gray-100 overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all" style={{ width: `${percent}%` }} />
+        </div>
+      )}
+
+      {ex && (
+        <div className={"mt-3 pt-3 border-t border-orange-100 flex flex-col sm:flex-row sm:items-center gap-3"}>
+          <p className="flex-1 text-sm text-gray-700">
+            {unlocked ? "📝 " : "🔒 "}
+            <b>Bài tập của khoá</b> ({ex.itemCount} câu):{" "}
+            {unlocked
+              ? last
+                ? `lần gần nhất điền từ đúng ${last.autoCorrect}/${last.autoTotal}` +
+                  (last.ai?.status === "done" && last.ai.total > 0 ? `, đặt câu đạt ${last.ai.passed}/${last.ai.total}` : "")
+                : "đã mở — bạn làm được rồi!"
+              : `mở khi bạn xem đủ cả ${ex.totalVideos} video — đã xem đủ ${watchedVideos}/${ex.totalVideos}.`}
+          </p>
+          {unlocked && (
+            <Link
+              to={`/hoc-lieu/${courseSlug}/bai-tap`}
+              className="shrink-0 text-center bg-gradient-to-r from-amber-400 to-orange-500 text-white font-medium px-5 py-2.5 rounded-full"
+            >
+              {last ? "Xem kết quả / làm lại" : "Làm bài tập →"}
+            </Link>
+          )}
+        </div>
+      )}
     </div>
   );
 }
