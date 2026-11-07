@@ -121,8 +121,8 @@ function Editor({ courseId, data, toast }) {
       <div className="mt-2 mb-5">
         <h1 className="text-xl font-heading font-semibold">Bài tập của khoá “{course.name}”</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Mỗi khoá một bộ bài tập. Học viên phải xem đủ <b>tất cả {data.videoCount} video</b> đang hiện của khoá (mỗi video 95%
-          thời lượng) mới làm được. Làm lại bao nhiêu lần cũng được; nộp xong mới thấy đáp án.
+          Mỗi khoá một bộ bài tập. Học viên phải xem đủ <b>tất cả {data.videoCount} video bài giảng bổ sung</b> đang
+          hiện của khoá (mỗi video 95% thời lượng) mới làm được; video theo giáo trình không tính. Làm lại bao nhiêu lần cũng được; nộp xong mới thấy đáp án.
           {data.attempts > 0 && ` Đã có ${data.attempts} lượt làm — sửa đề không làm thay đổi kết quả cũ.`}
         </p>
       </div>

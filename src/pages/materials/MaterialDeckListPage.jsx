@@ -3,10 +3,17 @@ import SiteHeader from "../../components/SiteHeader.jsx";
 import AuthImage from "../../components/materials/AuthImage.jsx";
 import { formatTime } from "../../components/materials/VideoPlayer.jsx";
 import { myVideoThumbPath, useMyMaterialCourse } from "../../hooks/useMaterials.js";
+import { VIDEO_GROUPS, groupOf } from "../../data/videoGroups.js";
 
 /**
  * Học liệu khoá học — nội dung một khoá: hai mục "Slide bài giảng" và "Video
  * bài giảng". Khoá chỉ có một loại thì không hiện tab.
+ *
+ * Tab Video chia hai mục, mỗi lúc chỉ hiện một mục (chọn bằng hai thẻ ở đầu,
+ * ghi trên đường dẫn ?nhom=…):
+ *  - "Video bài giảng bổ sung HSK 3.0": ít video, dạng danh sách +
+ *    thẻ bài tập của khoá (xem đủ hết mục này mới mở bài tập)
+ *  - "Video bài giảng theo giáo trình": nhiều, dài, chỉ để xem -> lưới thẻ gọn
  */
 export default function MaterialDeckListPage() {
   const { courseSlug } = useParams();
@@ -18,6 +25,8 @@ export default function MaterialDeckListPage() {
   const bothKinds = decks.length > 0 && videos.length > 0;
   // Tab ghi trên đường dẫn: xem video xong bấm quay lại vẫn ở tab Video.
   const tab = videos.length > 0 && (params.get("tab") === "video" || decks.length === 0) ? "video" : "slide";
+  const groups = VIDEO_GROUPS.map((g) => ({ ...g, list: videos.filter((v) => groupOf(v) === g.id) })).filter((g) => g.list.length);
+  const activeGroup = groups.find((g) => g.slug === params.get("nhom")) || groups[0];
 
   return (
     <div className="min-h-screen">
@@ -72,9 +81,53 @@ export default function MaterialDeckListPage() {
               </div>
             )}
 
-            {data.exercise && <ExerciseCard exercise={data.exercise} courseSlug={courseSlug} />}
+            {/* Khoá có bài tập nhưng không có video nhóm bổ sung: bài tập mở luôn, hiện thẻ ở đầu. */}
+            {data.exercise && !videos.some((v) => groupOf(v) === "supplement") && (
+              <ExerciseCard exercise={data.exercise} courseSlug={courseSlug} />
+            )}
 
-            {tab === "video" && <VideoList videos={videos} courseSlug={courseSlug} />}
+            {tab === "video" && activeGroup && (
+              <>
+                {groups.length > 1 ? (
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4" role="tablist">
+                    {groups.map((g) => {
+                      const active = g.id === activeGroup.id;
+                      return (
+                        <button
+                          key={g.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={active}
+                          onClick={() => setParams({ tab: "video", nhom: g.slug }, { replace: true })}
+                          className={
+                            "text-left rounded-2xl border-2 px-3 py-2.5 sm:px-4 sm:py-3 transition " +
+                            (active ? "border-primary bg-primary/15 shadow-sm" : "border-gray-200 bg-white hover:border-primary/60")
+                          }
+                        >
+                          <span className={"block text-sm sm:text-base font-heading font-semibold " + (active ? "text-gray-900" : "text-gray-700")}>
+                            {g.short}
+                          </span>
+                          <span className="block text-xs text-gray-500 mt-0.5">
+                            {g.list.length} video{g.id === "supplement" && data.exercise ? " · có bài tập" : " · xem tự do"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <h3 className="text-base font-heading font-semibold text-gray-900 mb-3">{activeGroup.label}</h3>
+                )}
+
+                {activeGroup.id === "supplement" ? (
+                  <>
+                    {data.exercise && <ExerciseCard exercise={data.exercise} courseSlug={courseSlug} />}
+                    <VideoList videos={activeGroup.list} courseSlug={courseSlug} />
+                  </>
+                ) : (
+                  <VideoGrid videos={activeGroup.list} courseSlug={courseSlug} />
+                )}
+              </>
+            )}
 
             <div className={"space-y-3" + (tab === "video" ? " hidden" : "")}>
               {decks.map((d, i) => (
@@ -170,7 +223,7 @@ function ExerciseCard({ exercise, courseSlug }) {
                 ? `Lần gần nhất: điền từ đúng ${last.autoCorrect}/${last.autoTotal}` +
                   (last.ai?.status === "done" && last.ai.total > 0 ? ` · đặt câu đạt ${last.ai.passed}/${last.ai.total}` : "")
                 : "Bạn đã xem đủ các video — làm bài tập để ôn lại nhé."
-              : `Xem đủ tất cả ${totalVideos} video để mở bài tập. Đã xem đủ ${watchedVideos}/${totalVideos} video.`}
+              : `Xem đủ cả ${totalVideos} video trong mục này để mở bài tập. Đã xem đủ ${watchedVideos}/${totalVideos} video.`}
           </p>
         </div>
         {unlocked && (
@@ -187,6 +240,45 @@ function ExerciseCard({ exercise, courseSlug }) {
           <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500" style={{ width: `${percent}%` }} />
         </div>
       )}
+    </div>
+  );
+}
+
+/** Video theo giáo trình: nhiều và dài -> lưới thẻ gọn để lướt nhanh. */
+function VideoGrid({ videos, courseSlug }) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      {videos.map((v) => {
+        const p = v.progress;
+        return (
+          <Link
+            key={v._id}
+            to={`/hoc-lieu/${courseSlug}/video/${v._id}`}
+            className="group bg-white rounded-2xl border border-orange-200 overflow-hidden hover:border-primary transition shadow-[0_6px_20px_-8px_rgba(230,168,0,0.25)]"
+          >
+            <div className="relative aspect-video bg-gradient-to-br from-amber-300 to-orange-400">
+              {v.hasThumb && <AuthImage path={myVideoThumbPath(v._id)} alt={v.title} className="absolute inset-0 w-full h-full" />}
+              <span className="absolute inset-0 flex items-center justify-center opacity-90 group-hover:opacity-100">
+                <span className="w-9 h-9 rounded-full bg-black/45 text-white flex items-center justify-center">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </span>
+              </span>
+              {v.durationSec > 0 && (
+                <span className="absolute bottom-1 right-1 text-[11px] font-medium bg-black/75 text-white px-1.5 py-0.5 rounded">{formatTime(v.durationSec)}</span>
+              )}
+              {p && p.percent > 0 && <span className="absolute bottom-0 left-0 h-1 bg-red-500" style={{ width: `${p.percent}%` }} />}
+            </div>
+            <div className="p-2.5 sm:p-3">
+              <p className="text-sm font-medium text-gray-900 line-clamp-2 leading-snug">{v.title}</p>
+              <p className={"text-[11px] mt-1 " + (p?.completed ? "text-green-700 font-medium" : p ? "text-primary-dark font-medium" : "text-gray-400")}>
+                {p?.completed ? "✓ Đã xem" : p ? `Đang xem · ${p.percent}%` : "Chưa xem"}
+              </p>
+            </div>
+          </Link>
+        );
+      })}
     </div>
   );
 }

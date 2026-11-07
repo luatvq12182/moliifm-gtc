@@ -181,6 +181,10 @@ export function useAdminVideos(courseId) {
     })
 }
 
+/** Nhập cả danh sách phát YouTube vào một mục video của khoá. */
+export const useImportPlaylist = () =>
+    useInvalidatingMutation((payload) => api.post('/admin/materials/videos/playlist', payload))
+
 /** Thêm video từ link YouTube — máy chủ đọc tên + thời lượng ngay. */
 export const useAddVideo = () => useInvalidatingMutation((payload) => api.post('/admin/materials/videos', payload))
 
