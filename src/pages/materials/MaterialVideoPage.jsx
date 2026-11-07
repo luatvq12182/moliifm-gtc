@@ -4,19 +4,23 @@ import SiteHeader from "../../components/SiteHeader.jsx";
 import VideoPlayer, { formatTime } from "../../components/materials/VideoPlayer.jsx";
 import { api } from "../../lib/apiClient.js";
 import { myVideoProgressPath, myVideoThumbPath, useMyMaterialCourse, useMyVideo } from "../../hooks/useMaterials.js";
+import { groupLabel, groupOf, videoListPath } from "../../data/videoGroups.js";
 
 /**
  * Học liệu khoá học — xem một video bài giảng. Lưu chỗ đang xem để lần sau mở
  * lại xem tiếp (video thường dài cỡ 1 tiếng).
  *
- * Bài tập là của KHOÁ: phải xem đủ TẤT CẢ video của khoá (mỗi video 95% thời
- * lượng thực sự phát, tua không tính) mới mở — máy chủ quyết định, trang chỉ hiện.
+ * Bài tập là của KHOÁ: phải xem đủ TẤT CẢ video nhóm "bài giảng bổ sung"
+ * của khoá (mỗi video 95% thời lượng thực sự phát, tua không tính) mới
+ * mở — máy chủ quyết định, trang chỉ hiện. Video "theo giáo trình" chỉ để xem.
  */
 export default function MaterialVideoPage() {
   const { courseSlug, videoId } = useParams();
   const { data: video, isLoading, isError, error } = useMyVideo(videoId);
   const { data: courseData } = useMyMaterialCourse(courseSlug);
-  const listPath = `/hoc-lieu/${courseSlug}?tab=video`;
+  // Quay lại đúng mục video (bổ sung / theo giáo trình).
+  const group = groupOf(video);
+  const listPath = videoListPath(courseSlug, group);
 
   const playerRef = useRef(null);
   const [liveSec, setLiveSec] = useState(null); // giây đã xem, tính ngay trên trình duyệt
@@ -40,7 +44,8 @@ export default function MaterialVideoPage() {
   const p = video?.progress;
   const startAt = p && !p.completed && p.position > 15 && (!video.durationSec || p.position < video.durationSec - 20) ? p.position : 0;
 
-  const videos = courseData?.videos || [];
+  // Trước / sau và số thứ tự tính trong cùng nhóm với video đang xem.
+  const videos = (courseData?.videos || []).filter((v) => groupOf(v) === group);
   const index = videos.findIndex((v) => v._id === videoId);
   const prev = index > 0 ? videos[index - 1] : null;
   const next = index >= 0 && index < videos.length - 1 ? videos[index + 1] : null;
@@ -90,7 +95,11 @@ export default function MaterialVideoPage() {
             />
 
             <div className="mt-4">
-              {index >= 0 && <p className="text-xs text-primary-dark font-medium">Video {index + 1} / {videos.length}</p>}
+              {index >= 0 && (
+                <p className="text-xs text-primary-dark font-medium">
+                  {groupLabel(group)} · Video {index + 1} / {videos.length}
+                </p>
+              )}
               <h2 className="text-lg sm:text-xl font-bold text-gray-900 mt-0.5">{video.title}</h2>
               <p className="text-sm text-gray-500 mt-0.5">
                 {video.course?.name}
@@ -131,7 +140,8 @@ export default function MaterialVideoPage() {
 function WatchStatus({ video, courseSlug, done, watchedSec, onJump }) {
   const duration = video.durationSec || 0;
   const percent = done ? 100 : duration ? Math.min(99, Math.floor((watchedSec / duration) * 100)) : 0;
-  const ex = video.exercise;
+  // Video theo giáo trình không liên quan bài tập của khoá.
+  const ex = groupOf(video) === "supplement" ? video.exercise : null;
   // Video này vừa xem đủ trong lần mở trang này -> cộng ngay vào số video đã xem đủ.
   const justDone = done && !video.progress?.completed;
   const watchedVideos = ex ? Math.min(ex.totalVideos, ex.watchedVideos + (justDone ? 1 : 0)) : 0;
@@ -176,7 +186,7 @@ function WatchStatus({ video, courseSlug, done, watchedSec, onJump }) {
                 ? `lần gần nhất điền từ đúng ${last.autoCorrect}/${last.autoTotal}` +
                   (last.ai?.status === "done" && last.ai.total > 0 ? `, đặt câu đạt ${last.ai.passed}/${last.ai.total}` : "")
                 : "đã mở — bạn làm được rồi!"
-              : `mở khi bạn xem đủ cả ${ex.totalVideos} video — đã xem đủ ${watchedVideos}/${ex.totalVideos}.`}
+              : `mở khi bạn xem đủ cả ${ex.totalVideos} video bài giảng bổ sung — đã xem đủ ${watchedVideos}/${ex.totalVideos}.`}
           </p>
           {unlocked && (
             <Link
