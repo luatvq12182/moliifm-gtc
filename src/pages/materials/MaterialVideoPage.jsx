@@ -5,6 +5,7 @@ import VideoPlayer, { formatTime } from "../../components/materials/VideoPlayer.
 import { api } from "../../lib/apiClient.js";
 import { myVideoProgressPath, myVideoThumbPath, useMyMaterialCourse, useMyVideo } from "../../hooks/useMaterials.js";
 import { groupLabel, groupOf, videoListPath } from "../../data/videoGroups.js";
+import { useBlockInspect } from "../../hooks/useBlockInspect.js";
 
 /**
  * Học liệu khoá học — xem một video bài giảng. Lưu chỗ đang xem để lần sau mở
@@ -16,6 +17,8 @@ import { groupLabel, groupOf, videoListPath } from "../../data/videoGroups.js";
  */
 export default function MaterialVideoPage() {
   const { courseSlug, videoId } = useParams();
+  // Chặn chuột phải / phím tắt mở DevTools trên trang xem video.
+  useBlockInspect();
   const { data: video, isLoading, isError, error } = useMyVideo(videoId);
   const { data: courseData } = useMyMaterialCourse(courseSlug);
   // Quay lại đúng mục video (bổ sung / theo giáo trình).

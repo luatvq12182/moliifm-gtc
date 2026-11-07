@@ -3,11 +3,14 @@ import { Link, useParams } from "react-router-dom";
 import SiteHeader from "../../components/SiteHeader.jsx";
 import SlideViewer from "../../components/materials/SlideViewer.jsx";
 import { myDeckPagePath, useMyDeck } from "../../hooks/useMaterials.js";
+import { useBlockInspect } from "../../hooks/useBlockInspect.js";
 
 /** Học liệu khoá học — xem một bộ slide. */
 export default function MaterialViewerPage() {
   const { courseSlug, deckId } = useParams();
   const { data: deck, isLoading, isError, error } = useMyDeck(deckId);
+  // Chặn chuột phải / phím tắt mở DevTools trên trang xem slide.
+  useBlockInspect();
   const pagePath = useCallback((n) => myDeckPagePath(deckId, n), [deckId]);
 
   return (
