@@ -27,6 +27,18 @@ import AdminMaterialAccessPage from "./pages/admin/materials/AdminMaterialAccess
 import AdminMaterialVideosPage from "./pages/admin/materials/AdminMaterialVideosPage.jsx";
 import AdminMaterialExercisePage from "./pages/admin/materials/AdminMaterialExercisePage.jsx";
 import AdminAiGradingPage from "./pages/admin/materials/AdminAiGradingPage.jsx";
+import ExamLevelSelectPage from "./pages/exam/ExamLevelSelectPage.jsx";
+import ExamLevelPage from "./pages/exam/ExamLevelPage.jsx";
+import ExamVideoPage from "./pages/exam/ExamVideoPage.jsx";
+import ExamTestIntroPage from "./pages/exam/ExamTestIntroPage.jsx";
+import ExamTakePage from "./pages/exam/ExamTakePage.jsx";
+import AdminExamLevelsPage from "./pages/admin/exam/AdminExamLevelsPage.jsx";
+import AdminExamVideosPage from "./pages/admin/exam/AdminExamVideosPage.jsx";
+import AdminExamAccessPage from "./pages/admin/exam/AdminExamAccessPage.jsx";
+import AdminExamTestsPage from "./pages/admin/exam/AdminExamTestsPage.jsx";
+import AdminExamTestEditPage from "./pages/admin/exam/AdminExamTestEditPage.jsx";
+import AdminExamResultsPage from "./pages/admin/exam/AdminExamResultsPage.jsx";
+import AdminExamResultDetailPage from "./pages/admin/exam/AdminExamResultDetailPage.jsx";
 
 export default function App() {
   return (
@@ -131,6 +143,46 @@ export default function App() {
         }
       />
       <Route
+        path="/luyen-thi"
+        element={
+          <ProtectedStudentRoute>
+            <ExamLevelSelectPage />
+          </ProtectedStudentRoute>
+        }
+      />
+      <Route
+        path="/luyen-thi/:levelSlug"
+        element={
+          <ProtectedStudentRoute>
+            <ExamLevelPage />
+          </ProtectedStudentRoute>
+        }
+      />
+      <Route
+        path="/luyen-thi/:levelSlug/de/:testId"
+        element={
+          <ProtectedStudentRoute>
+            <ExamTestIntroPage />
+          </ProtectedStudentRoute>
+        }
+      />
+      <Route
+        path="/luyen-thi/:levelSlug/lam-bai/:attemptId"
+        element={
+          <ProtectedStudentRoute>
+            <ExamTakePage />
+          </ProtectedStudentRoute>
+        }
+      />
+      <Route
+        path="/luyen-thi/:levelSlug/video/:videoId"
+        element={
+          <ProtectedStudentRoute>
+            <ExamVideoPage />
+          </ProtectedStudentRoute>
+        }
+      />
+      <Route
         path="/doi-mat-khau"
         element={
           <ProtectedStudentRoute>
@@ -159,6 +211,13 @@ export default function App() {
         <Route path="materials/courses/:courseId/exercise" element={<AdminMaterialExercisePage />} />
         <Route path="materials/access" element={<AdminMaterialAccessPage />} />
         <Route path="materials/ai-grading" element={<AdminAiGradingPage />} />
+        <Route path="exam/levels" element={<AdminExamLevelsPage />} />
+        <Route path="exam/videos" element={<AdminExamVideosPage />} />
+        <Route path="exam/tests" element={<AdminExamTestsPage />} />
+        <Route path="exam/tests/:id" element={<AdminExamTestEditPage />} />
+        <Route path="exam/results" element={<AdminExamResultsPage />} />
+        <Route path="exam/results/:id" element={<AdminExamResultDetailPage />} />
+        <Route path="exam/access" element={<AdminExamAccessPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

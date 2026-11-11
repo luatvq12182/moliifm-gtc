@@ -72,7 +72,9 @@ export function useToasts() {
   return { items, push, dismiss, success, error };
 }
 
-export function ToastStack({ toasts, onDismiss }) {
+// `raised`: trang có thanh thao tác dính đáy màn hình -> đẩy thông báo lên trên
+// thanh, kẻo che mất nút Lưu.
+export function ToastStack({ toasts, onDismiss, raised = false }) {
   if (toasts.length === 0) return null;
 
   return (
@@ -80,7 +82,10 @@ export function ToastStack({ toasts, onDismiss }) {
     // không cắt ngang việc người dùng đang làm.
     <div
       aria-live="polite"
-      className="fixed z-[60] inset-x-3 bottom-3 sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-96 flex flex-col gap-2"
+      className={
+        "fixed z-[60] inset-x-3 sm:inset-x-auto sm:right-5 sm:w-96 flex flex-col gap-2 " +
+        (raised ? "bottom-20" : "bottom-3 sm:bottom-5")
+      }
     >
       {toasts.map((t) => (
         <ToastItem key={t.id} toast={t} onDismiss={() => onDismiss(t.id)} />

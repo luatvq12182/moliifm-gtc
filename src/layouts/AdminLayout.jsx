@@ -31,6 +31,18 @@ const NAV_ITEMS = [
       { to: "/admin/materials/ai-grading", label: "Cấu hình AI chấm", available: true },
     ],
   },
+  {
+    type: "group",
+    label: "Luyện thi HSK 3.0",
+    icon: <ExamIcon />,
+    children: [
+      { to: "/admin/exam/levels", label: "Cấp thi", available: true },
+      { to: "/admin/exam/videos", label: "Video kỹ năng thi", available: true },
+      { to: "/admin/exam/tests", label: "Đề luyện thi", available: true },
+      { to: "/admin/exam/results", label: "Kết quả luyện thi", available: true },
+      { to: "/admin/exam/access", label: "Cấp quyền", available: true },
+    ],
+  },
 ];
 
 export default function AdminLayout() {
@@ -313,6 +325,15 @@ function SlidesIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="3" y="4" width="18" height="12" rx="2" />
       <path d="M12 16v4M8 20h8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ExamIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M14 3v6h6M9 14l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
