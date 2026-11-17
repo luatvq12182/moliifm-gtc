@@ -18,6 +18,8 @@ import { useConfirm } from "../../components/admin/ConfirmDialog.jsx";
 import LessonHistoryModal from "../../components/admin/LessonHistoryModal.jsx";
 import PracticeHistoryModal from "../../components/admin/PracticeHistoryModal.jsx";
 import { formatPhone } from "../../lib/phone.js";
+import { DeviceList, StatusBadge } from "../../components/admin/DeviceChip.jsx";
+import RowMenu from "../../components/admin/RowMenu.jsx";
 
 const STATUS_FILTERS = [
   { value: "", label: "Tất cả" },
@@ -313,14 +315,14 @@ export default function AdminStudentsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-400 text-xs uppercase border-b border-gray-100">
-                  <th className="px-4 py-3 font-medium">Học viên</th>
-                  <th className="px-4 py-3 font-medium">Số điện thoại</th>
-                  {/* <th className="px-4 py-3 font-medium">Khóa học</th> */}
-                  <th className="px-4 py-3 font-medium">Trạng thái</th>
-                  <th className="px-4 py-3 font-medium">Ngày tham gia</th>
-                  <th className="px-4 py-3 font-medium">Thiết bị</th>
-                  <th className="px-4 py-3 font-medium text-right">
-                    Hành động
+                  <th className="px-3 py-3 font-medium">Học viên</th>
+                  <th className="px-3 py-3 font-medium">Số điện thoại</th>
+                  {/* <th className="px-3 py-3 font-medium">Khóa học</th> */}
+                  <th className="px-3 py-3 font-medium">Trạng thái</th>
+                  <th className="px-3 py-3 font-medium">Ngày tham gia</th>
+                  <th className="px-3 py-3 font-medium">Thiết bị</th>
+                  <th className="px-3 py-3 font-medium text-right">
+                    <span className="sr-only">Hành động</span>
                   </th>
                 </tr>
               </thead>
@@ -328,9 +330,9 @@ export default function AdminStudentsPage() {
                 {students.map((s) => (
                   <tr
                     key={s._id}
-                    className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60"
+                    className="group/row border-b border-gray-50 last:border-0 hover:bg-gray-50/60"
                   >
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <div className="flex items-center gap-2.5">
                         <span className="w-8 h-8 rounded-full bg-primary/30 flex items-center justify-center text-xs font-medium shrink-0">
                           {s.name.split(" ").slice(-1)[0][0]}
@@ -345,118 +347,53 @@ export default function AdminStudentsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">
+                    <td className="px-3 py-3 text-gray-700 font-medium whitespace-nowrap">
                       {formatPhone(s.phone) || "—"}
                     </td>
-                    {/* <td className="px-4 py-3 text-gray-600">
+                    {/* <td className="px-3 py-3 text-gray-600">
                       {s.course || "—"}
                     </td> */}
-                    <td className="px-4 py-3">
-                      <span
-                        className={
-                          "text-xs font-medium px-2.5 py-1 rounded-full " +
-                          (s.status === "active"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-500")
-                        }
-                      >
-                        {s.status === "active" ? "Đang hoạt động" : "Đã khóa"}
-                      </span>
+                    <td className="px-3 py-3">
+                      <StatusBadge active={s.status === "active"} />
                     </td>
-                    <td className="px-4 py-3 text-gray-500">
+                    <td className="px-3 py-3 text-gray-500 whitespace-nowrap">
                       {formatJoinedDate(s.createdAt)}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="text-xs space-y-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-gray-400 w-14 shrink-0">
-                            Máy tính:
-                          </span>
-                          {s.devices?.desktop?.deviceId ? (
-                            <span className="text-green-600">Đang dùng</span>
-                          ) : (
-                            <span className="text-gray-400">Trống</span>
-                          )}
-                          {s.devices?.desktop?.deviceId && (
-                            <button
-                              onClick={() => handleResetDevices(s, "desktop")}
-                              className="text-primary-dark hover:underline"
-                            >
-                              Đăng xuất
-                            </button>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-gray-400 w-14 shrink-0">
-                            ĐT:
-                          </span>
-                          {s.devices?.mobile?.deviceId ? (
-                            <span className="text-green-600">Đang dùng</span>
-                          ) : (
-                            <span className="text-gray-400">Trống</span>
-                          )}
-                          {s.devices?.mobile?.deviceId && (
-                            <button
-                              onClick={() => handleResetDevices(s, "mobile")}
-                              className="text-primary-dark hover:underline"
-                            >
-                              Đăng xuất
-                            </button>
-                          )}
-                        </div>
-                        {(s.devices?.desktop?.deviceId ||
-                          s.devices?.mobile?.deviceId) && (
-                          <button
-                            onClick={() => handleResetDevices(s, "both")}
-                            className="text-red-500 hover:underline"
-                          >
-                            Đăng xuất cả 2
-                          </button>
-                        )}
-                      </div>
+                    <td className="px-3 py-2.5">
+                      {/* Chỉ hiện máy đang đăng nhập: loại máy, trình duyệt · hệ điều hành, từ bao giờ, nút đăng xuất. */}
+                      <DeviceList devices={s.devices} onLogout={(target) => handleResetDevices(s, target)} />
                     </td>
                     <td
                       className={
-                        "px-4 py-3 text-right space-x-1 whitespace-nowrap transition " +
+                        "px-3 py-3 text-right whitespace-nowrap transition " +
                         (busyStudentId === s._id
                           ? "opacity-40 pointer-events-none"
                           : "")
                       }
                     >
-                      <button
-                        onClick={() => openEditModal(s)}
-                        className="text-xs text-primary-dark hover:underline"
-                      >
-                        Sửa
-                      </button>
-                      <span className="text-gray-300">·</span>
-                      <button
-                        onClick={() => handleResetPassword(s)}
-                        className="text-xs text-gray-600 hover:underline"
-                      >
-                        Đặt lại MK
-                      </button>
-                      {(
-                        <>
-                          <span className="text-gray-300">·</span>
-                          <button
-                            onClick={() => {
-                              setDeepDive(false);
-                              setHistoryStudent(s);
-                            }}
-                            className="text-xs text-gray-600 hover:underline"
-                          >
-                            Lịch sử học
-                          </button>
-                        </>
-                      )}
-                      <span className="text-gray-300">·</span>
-                      <button
-                        onClick={() => handleToggleStatus(s)}
-                        className="text-xs text-red-500 hover:underline"
-                      >
-                        {s.status === "active" ? "Khóa" : "Mở khóa"}
-                      </button>
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          onClick={() => openEditModal(s)}
+                          className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50"
+                        >
+                          Sửa
+                        </button>
+                        <RowMenu
+                          label={`Thao tác với ${s.name}`}
+                          items={[
+                            { label: "Đặt lại mật khẩu", onClick: () => handleResetPassword(s) },
+                            {
+                              label: "Lịch sử học",
+                              onClick: () => {
+                                setDeepDive(false);
+                                setHistoryStudent(s);
+                              },
+                            },
+                            { separator: true },
+                            { label: s.status === "active" ? "Khóa tài khoản" : "Mở khóa tài khoản", danger: s.status === "active", onClick: () => handleToggleStatus(s) },
+                          ]}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -491,66 +428,19 @@ export default function AdminStudentsPage() {
                       {formatPhone(s.phone) || "—"}
                     </p>
                   </div>
-                  <span
-                    className={
-                      "shrink-0 text-[11px] font-medium px-2 py-1 rounded-full " +
-                      (s.status === "active"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-gray-100 text-gray-500")
-                    }
-                  >
-                    {s.status === "active" ? "Hoạt động" : "Đã khóa"}
+                  <span className="shrink-0">
+                    <StatusBadge active={s.status === "active"} short />
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-3">
                   <p className="truncate">Email: {s.email || "—"}</p>
                   <p>Tham gia: {formatJoinedDate(s.createdAt)}</p>
-                  <p>
-                    Máy tính:{" "}
-                    {s.devices?.desktop?.deviceId ? (
-                      <span className="text-green-600">Đang dùng</span>
-                    ) : (
-                      <span className="text-gray-400">Trống</span>
-                    )}
-                  </p>
-                  <p>
-                    Điện thoại:{" "}
-                    {s.devices?.mobile?.deviceId ? (
-                      <span className="text-green-600">Đang dùng</span>
-                    ) : (
-                      <span className="text-gray-400">Trống</span>
-                    )}
-                  </p>
                 </div>
 
-                {(s.devices?.desktop?.deviceId ||
-                  s.devices?.mobile?.deviceId) && (
-                  <div className="flex flex-wrap gap-3 text-xs mb-3">
-                    {s.devices?.desktop?.deviceId && (
-                      <button
-                        onClick={() => handleResetDevices(s, "desktop")}
-                        className="text-primary-dark font-medium"
-                      >
-                        Đăng xuất máy tính
-                      </button>
-                    )}
-                    {s.devices?.mobile?.deviceId && (
-                      <button
-                        onClick={() => handleResetDevices(s, "mobile")}
-                        className="text-primary-dark font-medium"
-                      >
-                        Đăng xuất điện thoại
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleResetDevices(s, "both")}
-                      className="text-red-500 font-medium"
-                    >
-                      Đăng xuất cả 2
-                    </button>
-                  </div>
-                )}
+                <div className="mb-3">
+                  <DeviceList devices={s.devices} onLogout={(target) => handleResetDevices(s, target)} alwaysShowBoth />
+                </div>
 
                 <div
                   className={

@@ -1,0 +1,376 @@
+/*
+ * HỆ THIẾT KẾ TRANG QUẢN TRỊ (sáng / tối) — phong cách dashboard hiện đại
+ * (shadcn/ui · Linear · Vercel): nền trung tính (zinc), nút chính màu mực,
+ * màu thương hiệu (vàng Molii) chỉ để nhấn; font Geist.
+ *
+ * Các trang quản trị cũ viết bằng lớp Tailwind màu cố định (bg-white,
+ * text-gray-500, bg-primary…). Tệp này đặt bộ màu bằng biến CSS rồi ÁNH XẠ
+ * LẠI các lớp đó — CHỈ bên trong .admin-root (trang học viên không đổi).
+ * Chế độ tối: lớp .dark cạnh .admin-root.
+ *
+ * Độ ưu tiên: ".admin-root .bg-white" (0,2,0) thắng lớp Tailwind gốc (0,1,0).
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+
+/* ---------- bộ màu ---------- */
+
+.admin-root {
+  --a-bg: #f4f4f5;
+  --a-panel: #ffffff;
+  --a-surface: #ffffff;
+  --a-surface-2: #fafafa;
+  --a-surface-3: #f4f4f5;
+  --a-surface-4: #e4e4e7;
+  --a-hover: #f4f4f5;
+  --a-hover-strong: #ececee;
+  --a-input: #ffffff;
+
+  --a-border-soft: #f0f0f2;
+  --a-border: #e4e4e7;
+  --a-border-strong: #d4d4d8;
+
+  --a-text: #09090b;
+  --a-text-2: #18181b;
+  --a-text-3: #27272a;
+  --a-text-4: #3f3f46;
+  --a-muted: #71717a;
+  --a-faint: #a1a1aa;
+  --a-fainter: #d4d4d8;
+
+  --a-ink: #18181b;
+  --a-ink-hover: #2e2e33;
+  --a-ink-fg: #fafafa;
+
+  --a-accent: #ffc137;
+  --a-accent-strong: #b47b00;
+  --a-accent-soft: rgba(255, 193, 55, 0.16);
+  --a-accent-ring: rgba(255, 193, 55, 0.35);
+
+  --a-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --a-shadow-md: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --a-shadow-lg: 0 24px 48px -12px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --a-switch-off: #d4d4d8;
+
+  color-scheme: light;
+  background: var(--a-bg);
+  color: var(--a-text);
+  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.admin-root.dark {
+  --a-bg: #050506;
+  --a-panel: #0b0b0d;
+  --a-surface: #101012;
+  --a-surface-2: #131316;
+  --a-surface-3: #19191c;
+  --a-surface-4: #26262a;
+  --a-hover: #17171a;
+  --a-hover-strong: #212125;
+  --a-input: #0d0d0f;
+
+  --a-border-soft: #1b1b1e;
+  --a-border: #26262a;
+  --a-border-strong: #36363c;
+
+  --a-text: #fafafa;
+  --a-text-2: #ededef;
+  --a-text-3: #d4d4d8;
+  --a-text-4: #b4b4bb;
+  --a-muted: #8b8b94;
+  --a-faint: #64646c;
+  --a-fainter: #3f3f46;
+
+  --a-ink: #ffc137;
+  --a-ink-hover: #ffcd5e;
+  --a-ink-fg: #1d1606;
+
+  --a-accent-strong: #ffcd5c;
+  --a-accent-soft: rgba(255, 193, 55, 0.12);
+  --a-accent-ring: rgba(255, 193, 55, 0.3);
+
+  --a-shadow: none;
+  --a-shadow-md: none;
+  --a-shadow-lg: 0 24px 64px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --a-switch-off: #36363c;
+
+  color-scheme: dark;
+}
+
+/* ---------- khung: bảng nội dung nổi (inset) ---------- */
+
+.adm-panel {
+  position: relative;
+  background: var(--a-panel);
+  isolation: isolate;
+}
+@media (min-width: 1024px) {
+  .adm-panel {
+    border: 1px solid var(--a-border);
+    border-radius: 16px;
+    box-shadow: var(--a-shadow-md);
+    overflow: clip;
+  }
+}
+/* Vầng sáng thương hiệu rất nhẹ ở góc trên */
+.adm-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 320px;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(600px 200px at 85% -40px, rgba(255, 193, 55, 0.13), transparent 70%),
+    radial-gradient(500px 180px at 10% -60px, rgba(120, 119, 198, 0.07), transparent 70%);
+}
+.admin-root.dark .adm-panel::before {
+  background:
+    radial-gradient(600px 220px at 85% -40px, rgba(255, 193, 55, 0.09), transparent 70%),
+    radial-gradient(500px 200px at 10% -60px, rgba(120, 119, 198, 0.1), transparent 70%);
+}
+
+/* Chuyển trang: CHỈ mờ dần (không dùng transform) — transform trên khung nội
+   dung sẽ biến nó thành mốc của mọi phần tử position: fixed bên trong (hộp
+   thoại, thông báo, thanh Lưu, menu…), làm chúng lệch khỏi màn hình. */
+.adm-fade { animation: adm-fade 0.2s ease-out; }
+@keyframes adm-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.adm-pop { animation: adm-pop 0.16s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+@keyframes adm-pop {
+  from { opacity: 0; transform: scale(0.97) translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.adm-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 5px;
+  border: 1px solid var(--a-border);
+  border-bottom-width: 2px;
+  background: var(--a-surface-2);
+  color: var(--a-muted);
+  font: 500 11px/1 'Geist Mono', ui-monospace, monospace;
+}
+
+/* Thanh lưu dính đáy của các trang (viết sẵn lg:left-64) -> bám theo bề rộng thanh bên. */
+@media (min-width: 1024px) {
+  .admin-root .fixed.bottom-0.lg\:left-64 {
+    left: var(--a-sidebar-w);
+    right: 9px;
+    bottom: 9px;
+    border-radius: 0 0 15px 15px;
+  }
+}
+
+/* ---------- chữ ---------- */
+
+.admin-root .font-heading {
+  font-family: 'Geist', system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.admin-root main h1 {
+  font-size: 1.625rem;
+  line-height: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--a-text);
+}
+.admin-root main h1 + p { color: var(--a-muted); font-size: 14px; margin-top: 4px; }
+.admin-root main h2.font-heading { letter-spacing: -0.015em; }
+.admin-root .font-mono { font-family: 'Geist Mono', ui-monospace, monospace; }
+
+/* ---------- nền / mặt ---------- */
+
+.admin-root .bg-white { background-color: var(--a-surface); }
+.admin-root .bg-white\/95 { background-color: color-mix(in srgb, var(--a-panel) 88%, transparent); }
+.admin-root .bg-white\/70 { background-color: color-mix(in srgb, var(--a-surface) 70%, transparent); }
+.admin-root .bg-gray-50,
+.admin-root .bg-gray-50\/60,
+.admin-root .bg-gray-50\/70 { background-color: var(--a-surface-2); }
+.admin-root .bg-gray-100 { background-color: var(--a-surface-3); }
+.admin-root .bg-gray-200,
+.admin-root .bg-gray-200\/60,
+.admin-root .bg-gray-200\/70 { background-color: var(--a-surface-4); }
+.admin-root .bg-gray-300 { background-color: var(--a-switch-off); }
+.admin-root .hover\:bg-gray-50:hover,
+.admin-root .hover\:bg-gray-50\/60:hover,
+.admin-root .hover\:bg-gray-100:hover { background-color: var(--a-hover); }
+.admin-root .disabled\:bg-gray-50:disabled { background-color: var(--a-surface-2); }
+
+/* ---------- chữ màu xám ---------- */
+
+.admin-root .text-gray-900 { color: var(--a-text); }
+.admin-root .text-gray-800 { color: var(--a-text-2); }
+.admin-root .text-gray-700 { color: var(--a-text-3); }
+.admin-root .text-gray-600 { color: var(--a-text-4); }
+.admin-root .text-gray-500 { color: var(--a-muted); }
+.admin-root .text-gray-400 { color: var(--a-faint); }
+.admin-root .text-gray-300 { color: var(--a-fainter); }
+.admin-root .hover\:text-gray-900:hover,
+.admin-root .hover\:text-gray-800:hover { color: var(--a-text); }
+.admin-root .hover\:text-gray-700:hover,
+.admin-root .hover\:text-gray-600:hover { color: var(--a-text-3); }
+.admin-root .disabled\:text-gray-400:disabled { color: var(--a-faint); }
+.admin-root .text-primary-dark,
+.admin-root .hover\:text-primary-dark:hover { color: var(--a-accent-strong); }
+.admin-root a.text-primary-dark { text-underline-offset: 3px; }
+
+/* ---------- viền ---------- */
+
+.admin-root .border-gray-50,
+.admin-root .border-gray-100 { border-color: var(--a-border-soft); }
+.admin-root .border-gray-200 { border-color: var(--a-border); }
+.admin-root .border-gray-300 { border-color: var(--a-border-strong); }
+.admin-root .hover\:border-gray-300:hover,
+.admin-root .group:hover .group-hover\:border-gray-300 { border-color: var(--a-border-strong); }
+.admin-root .divide-gray-50 > :not([hidden]) ~ :not([hidden]),
+.admin-root .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--a-border-soft); }
+.admin-root .border-dashed.border-gray-300 { border-color: var(--a-border-strong); background-color: var(--a-surface-2); }
+
+/* ---------- thẻ ---------- */
+
+.admin-root main :is(.rounded-2xl, .rounded-xl).border { box-shadow: var(--a-shadow); }
+.admin-root main .rounded-2xl { border-radius: 14px; }
+.admin-root .shadow-xl {
+  box-shadow: var(--a-shadow-lg);
+  border: 1px solid var(--a-border);
+  border-radius: 16px;
+  animation: adm-pop 0.16s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.admin-root .shadow-xl.bg-white { background-color: var(--a-panel); }
+
+/* ---------- nút ---------- */
+
+/* Nút chính: màu mực (sáng) / vàng Molii (tối) */
+.admin-root :is(.bg-primary, .bg-gradient-to-r.from-amber-400) {
+  background: var(--a-ink);
+  color: var(--a-ink-fg);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: background-color 0.15s, transform 0.08s;
+}
+.admin-root :is(.bg-primary, .bg-gradient-to-r.from-amber-400) :is(.text-gray-900, .text-gray-800),
+.admin-root .bg-primary:is(.text-gray-900, .text-gray-800) { color: var(--a-ink-fg); }
+.admin-root :is(.hover\:bg-primary-dark, .hover\:from-amber-500):hover { background: var(--a-ink-hover); }
+.admin-root button:is(.bg-primary, .bg-gradient-to-r):active:not(:disabled) { transform: translateY(1px); }
+.admin-root .bg-primary\/5,
+.admin-root .bg-primary\/10,
+.admin-root .bg-primary\/20,
+.admin-root .bg-primary\/30 { background-color: var(--a-accent-soft); }
+.admin-root .border-primary,
+.admin-root .border-primary-dark { border-color: var(--a-ink); }
+.admin-root .hover\:border-primary:hover { border-color: var(--a-text-4); }
+
+/* Nút viền (phụ) */
+.admin-root button.border.border-gray-300,
+.admin-root a.border.border-gray-300,
+.admin-root label.border.border-gray-300 {
+  background-color: var(--a-surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  font-weight: 500;
+}
+.admin-root button.border.border-gray-300:hover,
+.admin-root a.border.border-gray-300:hover,
+.admin-root label.border.border-gray-300:hover { background-color: var(--a-hover); }
+.admin-root button:disabled { cursor: not-allowed; }
+
+/* Công tắc bật */
+.admin-root button[role='switch'].bg-green-500 { background-color: var(--a-ink); }
+.admin-root.dark button[role='switch'] > span { background-color: #fafafa; }
+
+/* ---------- ô nhập ---------- */
+
+.admin-root :is(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not(.adm-bare), select, textarea) {
+  background-color: var(--a-input);
+  color: var(--a-text);
+  border-color: var(--a-border-strong);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.admin-root :is(input, textarea)::placeholder { color: var(--a-faint); }
+.admin-root :is(input, select, textarea):disabled { opacity: 0.55; }
+.admin-root :is(input:not(.adm-bare), select, textarea):focus {
+  outline: none;
+  border-color: var(--a-text-4);
+  box-shadow: 0 0 0 3px var(--a-accent-ring);
+}
+.admin-root input[type='checkbox'],
+.admin-root input[type='radio'] { accent-color: var(--a-ink); width: 15px; height: 15px; }
+.admin-root input[type='range'] { accent-color: #e6a800; }
+
+/* ---------- bảng ---------- */
+
+.admin-root main table { font-size: 13.5px; }
+.admin-root main table thead tr { background: var(--a-surface-2); }
+.admin-root main table thead th {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--a-muted);
+  text-transform: none;
+  letter-spacing: 0;
+  height: 42px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--a-border);
+}
+.admin-root main table tbody tr { transition: background-color 0.12s; border-color: var(--a-border-soft); }
+.admin-root main table tbody tr:hover { background-color: var(--a-hover); }
+
+/* ---------- nhãn trạng thái (badge) ---------- */
+
+.admin-root .rounded-full:is(.bg-green-50, .bg-green-100, .bg-gray-100, .bg-red-50, .bg-red-100, .bg-amber-50, .bg-amber-100, .bg-yellow-100, .bg-violet-50, .bg-primary\/30, .bg-primary\/20):is(.text-xs, .text-\[10px\], .text-\[11px\]) {
+  border-radius: 6px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent);
+}
+/* Nhãn kiểu mới (rounded-md) cũng có viền mảnh cùng màu chữ */
+.admin-root .rounded-md:is(.bg-green-50, .bg-gray-100):is(.text-xs) {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 20%, transparent);
+}
+
+/* ---------- hộp thoại ---------- */
+
+.admin-root .fixed.inset-0:is(.bg-black\/40, .bg-black\/60) {
+  background-color: rgba(9, 9, 11, 0.45);
+  backdrop-filter: blur(4px);
+}
+
+/* ---------- thanh cuộn ---------- */
+
+.admin-root * { scrollbar-width: thin; scrollbar-color: var(--a-border-strong) transparent; }
+
+/* ---------- màu nhấn trong chế độ tối ---------- */
+
+.admin-root.dark :is(.bg-green-50, .bg-green-100) { background-color: rgba(34, 197, 94, 0.12); }
+.admin-root.dark :is(.text-green-600, .text-green-700, .text-green-800) { color: #4ade80; }
+.admin-root.dark :is(.border-green-200, .border-green-300) { border-color: rgba(34, 197, 94, 0.3); }
+
+.admin-root.dark :is(.bg-red-50, .bg-red-100) { background-color: rgba(239, 68, 68, 0.12); }
+.admin-root.dark .hover\:bg-red-50:hover { background-color: rgba(239, 68, 68, 0.14); }
+.admin-root.dark :is(.text-red-400, .text-red-500, .text-red-600, .text-red-700, .text-red-800, .hover\:text-red-600:hover, .hover\:text-red-700:hover) { color: #f87171; }
+.admin-root.dark :is(.border-red-100, .border-red-200) { border-color: rgba(239, 68, 68, 0.3); }
+
+.admin-root.dark :is(.bg-amber-50, .bg-amber-50\/50, .bg-amber-100, .bg-yellow-100, .bg-orange-50, .bg-orange-50\/60, .bg-orange-100) { background-color: rgba(245, 158, 11, 0.11); }
+.admin-root.dark :is(.hover\:bg-orange-50, .hover\:bg-amber-200):hover { background-color: rgba(245, 158, 11, 0.17); }
+.admin-root.dark :is(.text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900, .text-yellow-700, .text-orange-700) { color: #fbbf24; }
+.admin-root.dark :is(.border-amber-100, .border-amber-200, .border-amber-300, .border-orange-200, .border-orange-300) { border-color: rgba(245, 158, 11, 0.3); }
+
+.admin-root.dark .bg-violet-50 { background-color: rgba(139, 92, 246, 0.14); }
+.admin-root.dark .text-violet-700 { color: #a78bfa; }
+.admin-root.dark .border-violet-200 { border-color: rgba(139, 92, 246, 0.32); }
+
+/* Ảnh trang đề / slide: dịu lại trên nền tối */
+.admin-root.dark figure img,
+.admin-root.dark [style*='aspect-ratio'] img { filter: brightness(0.9); }

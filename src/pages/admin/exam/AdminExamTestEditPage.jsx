@@ -268,7 +268,7 @@ function PdfPanel({ test, toast }) {
   };
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 p-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto min-w-0">
+    <section className="bg-white rounded-2xl border border-gray-200 p-4 lg:sticky lg:top-20 lg:max-h-[calc(100vh-10rem)] lg:overflow-y-auto min-w-0">
       <div className="flex items-center gap-2 mb-3">
         <h2 className="font-heading font-semibold flex-1">Đề thi (PDF)</h2>
         {pdf.conversion === "ready" && (

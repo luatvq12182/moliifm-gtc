@@ -1,6 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
+  // Chế độ tối của trang quản trị: lớp .dark trên khung .admin-root (không theo html).
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {

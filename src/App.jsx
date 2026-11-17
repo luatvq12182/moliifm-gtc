@@ -9,6 +9,7 @@ import LessonHistoryDetailPage from "./pages/LessonHistoryDetailPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import AdminLayout from "./layouts/AdminLayout.jsx";
 import AdminStudentsPage from "./pages/admin/AdminStudentsPage.jsx";
+import AdminDashboardPage from "./pages/admin/AdminDashboardPage.jsx";
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute.jsx";
 import AdminCurriculaPage from "./pages/admin/AdminCurriculaPage.jsx";
 import AdminCoursesPage from "./pages/admin/AdminCoursesPage.jsx";
@@ -199,6 +200,7 @@ export default function App() {
           </ProtectedAdminRoute>
         }
       >
+        <Route index element={<AdminDashboardPage />} />
         <Route path="students" element={<AdminStudentsPage />} />
         <Route path="gtc/curricula" element={<AdminCurriculaPage />} />
         <Route path="gtc/courses" element={<AdminCoursesPage />} />
