@@ -2,6 +2,7 @@ import SiteHeader from "../components/SiteHeader.jsx";
 import { Link } from "react-router-dom";
 import { features } from "../data/features.js";
 import ThumbnailImage from "../components/ThumbnailImage.jsx";
+import { useMyExamLevels } from "../hooks/useExam.js";
 
 const THEME = {
   violet: {
@@ -37,7 +38,10 @@ export default function FeatureSelectPage() {
   // MỌI chức năng đang mở, không chỉ cái đầu tiên — trước đây dùng find() nên
   // chức năng thứ hai trở đi lặng lẽ biến mất khỏi trang.
   // `hidden`: chức năng đang làm, chưa hiện cho học viên.
-  const shown = features.filter((f) => !f.hidden);
+  // `requires: 'examAccess'`: chỉ hiện khi học viên được cấp quyền ít nhất một
+  // cấp luyện thi (máy chủ chỉ trả cấp đã xuất bản VÀ được cấp quyền).
+  const { data: examLevels = [] } = useMyExamLevels();
+  const shown = features.filter((f) => !f.hidden && (f.requires !== "examAccess" || examLevels.length > 0));
   const available = shown.filter((f) => f.available);
   const locked = shown.filter((f) => !f.available);
 

@@ -20,11 +20,12 @@ export const features = [
     {
         id: 'luyen-thi-hsk',
         name: 'LUYỆN THI HSK 3.0 CÙNG MOLII FM',
-        description: 'Video hướng dẫn kỹ năng thi và luyện đề thi thử HSK 3.0 có AI chấm chữa',
+        description: 'Video hướng dẫn kỹ năng thi và luyện đề thi thử HSK 3.0',
         available: true,
-        // Đang làm: ẩn khỏi trang chủ học viên tới khi xong (vào thẳng /luyen-thi để thử).
-        hidden: true,
+        // Chỉ hiện với học viên được cấp quyền ít nhất một cấp thi (Student.examAccess).
+        requires: 'examAccess',
         route: '/luyen-thi',
+        thumbnail: '/images/features/luyen-thi-hsk.webp',
         tags: ['Hướng dẫn kỹ năng thi', 'Luyện đề HSK 3.0', 'AI chấm điểm'],
     },
     // {

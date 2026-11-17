@@ -3,7 +3,7 @@ import { useState } from "react";
 /**
  * Kết quả một bài luyện thi (dùng chung cho học viên và trang quản trị):
  * điểm tổng / từng phần, rồi từng câu đúng sai kèm đáp án; câu đặt câu kèm
- * mức AI chấm, nhận xét, câu sửa, câu mẫu.
+ * điểm AI cho (vd. 8/10), nhận xét, câu sửa, câu mẫu.
  *
  * @param result   kết quả máy chủ chấm (attempt.result)
  * @param groups   cấu trúc phiếu trả lời của bài
@@ -99,7 +99,8 @@ export default function ExamResultView({ result, groups, onRegrade, regrading = 
   );
 }
 
-const isWrong = (it) => (it.type === "sentence" ? it.verdict !== "dat" : !it.ok);
+// Đặt câu: bài chấm theo điểm có `ok` (từ 60% điểm tối đa); bài cũ chấm theo mức thì xét mức "đạt".
+const isWrong = (it) => (it.type === "sentence" && it.score === undefined ? it.verdict !== "dat" : !it.ok);
 
 function GroupResult({ group, items, onlyWrong }) {
   const nos = Array.from({ length: group.to - group.from + 1 }, (_, i) => group.from + i).filter((n) => items[n] && (!onlyWrong || isWrong(items[n])));
@@ -139,16 +140,26 @@ function GroupResult({ group, items, onlyWrong }) {
   );
 }
 
+/** Nhãn điểm câu đặt câu: "8/10" (xanh / vàng / đỏ theo tỉ lệ), "Bỏ trống", "Chờ chấm"; bài cũ chấm theo mức thì hiện mức. */
+function sentenceBadge(item) {
+  if (item.score === undefined) {
+    const v = VERDICT[item.verdict];
+    return { text: `${v ? v.label : "Chờ chấm"} · ${item.points} điểm`, cls: v ? v.cls : "bg-gray-100 text-gray-500" };
+  }
+  if (item.blank) return { text: `Bỏ trống · 0/${item.max}`, cls: VERDICT.blank.cls };
+  if (item.score === null) return { text: "Chờ AI chấm", cls: "bg-gray-100 text-gray-500" };
+  const r = item.max ? item.score / item.max : 0;
+  return { text: `${item.score}/${item.max} điểm`, cls: r >= 0.8 ? VERDICT.dat.cls : r >= 0.5 ? VERDICT.gan_dat.cls : VERDICT.chua_dat.cls };
+}
+
 function SentenceResult({ no, item }) {
-  const v = VERDICT[item.verdict];
+  const badge = sentenceBadge(item);
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-3">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm text-gray-500">{no}. Dùng từ:</span>
         <span className="font-semibold text-gray-900">{item.keyword}</span>
-        <span className={"ml-auto text-xs font-medium px-2 py-0.5 rounded-full " + (v ? v.cls : "bg-gray-100 text-gray-500")}>
-          {v ? v.label : "Chờ chấm"} · {item.points} điểm
-        </span>
+        <span className={"ml-auto text-xs font-semibold px-2 py-0.5 rounded-full " + badge.cls}>{badge.text}</span>
       </div>
       {item.given && <p className="mt-1.5 text-base text-gray-900">{item.given}</p>}
       {item.comment && <p className="mt-1 text-sm text-gray-600">{item.comment}</p>}
@@ -160,7 +171,7 @@ function SentenceResult({ no, item }) {
       )}
       {item.sample && (
         <p className="mt-0.5 text-sm">
-          <span className="text-gray-500">Câu mẫu: </span>
+          <span className="text-gray-500">Đáp án tham khảo: </span>
           <span className="text-gray-800">{item.sample}</span>
         </p>
       )}

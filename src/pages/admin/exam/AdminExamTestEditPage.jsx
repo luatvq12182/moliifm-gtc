@@ -66,7 +66,7 @@ function fromServer(t) {
       options: g.options || "",
       title: g.title || "",
       page: g.page || 0,
-      points: g.points || 0,
+      points: g.points || (g.type === "sentence" ? g.verdictPoints?.dat || 0 : 0),
       verdictPoints: { dat: g.verdictPoints?.dat || 0, gan_dat: g.verdictPoints?.gan_dat || 0, chua_dat: g.verdictPoints?.chua_dat || 0 },
     })),
     items,
@@ -756,13 +756,9 @@ function StructureCard({ form, setForm, published }) {
               )}
               {g.type === "sentence" ? (
                 <>
-                  Điểm: đạt
-                  <input type="number" min="0" value={g.verdictPoints.dat} onChange={(e) => setGroup(i, { verdictPoints: { ...g.verdictPoints, dat: Number(e.target.value) } })} className={small + " w-16"} />
-                  gần đạt
-                  <input type="number" min="0" value={g.verdictPoints.gan_dat} onChange={(e) => setGroup(i, { verdictPoints: { ...g.verdictPoints, gan_dat: Number(e.target.value) } })} className={small + " w-16"} />
-                  chưa đạt
-                  <input type="number" min="0" value={g.verdictPoints.chua_dat} onChange={(e) => setGroup(i, { verdictPoints: { ...g.verdictPoints, chua_dat: Number(e.target.value) } })} className={small + " w-16"} />
-                  <span className="text-xs text-gray-400">(bỏ trống: 0)</span>
+                  Điểm tối đa/câu
+                  <input type="number" min="1" step="1" value={g.points || ""} onChange={(e) => setGroup(i, { points: Number(e.target.value) })} className={small + " w-20"} aria-label="Điểm tối đa mỗi câu" />
+                  <span className="text-xs text-gray-400">AI cho điểm từ 0 tới mức này · bỏ trống 0 điểm</span>
                 </>
               ) : (
                 <>

@@ -58,12 +58,13 @@ export function parseAnswerPaste(raw, groups, items) {
 /** Làm tròn điểm để hiện (3.3333 -> 3,33). */
 export const fmtPoints = (n) => (Math.round((Number(n) || 0) * 100) / 100).toLocaleString("vi-VN");
 
-/** Tổng điểm tối đa từng phần (đặt câu tính mức "đạt"). */
+/** Tổng điểm tối đa từng phần. */
 export function scoreSummary(groups) {
   const max = { listening: 0, reading: 0, writing: 0 };
   for (const g of groups) {
     const n = Math.max(0, g.to - g.from + 1);
-    max[g.section] += n * (g.type === "sentence" ? Number(g.verdictPoints?.dat) || 0 : Number(g.points) || 0);
+    // Đặt câu: `points` = điểm tối đa mỗi câu (AI cho 0..points); đề cũ chỉ có verdictPoints.
+    max[g.section] += n * (Number(g.points) || (g.type === "sentence" ? Number(g.verdictPoints?.dat) || 0 : 0));
   }
   return { ...max, total: max.listening + max.reading + max.writing };
 }
