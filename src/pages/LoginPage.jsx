@@ -62,7 +62,7 @@ export default function LoginPage() {
 
     try {
       await adminLogin.mutateAsync({ email: identifier, password });
-      navigate("/admin/students");
+      navigate("/admin");
     } catch (adminErr) {
       setError("Số điện thoại hoặc mật khẩu không đúng.");
     } finally {

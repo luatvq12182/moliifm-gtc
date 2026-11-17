@@ -1,318 +1,404 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { clearAdminSession, getAdminInfo } from "../lib/adminAuth.js";
+import { useAdminTheme } from "../hooks/useAdminTheme.js";
+import { NAV_SECTIONS, currentPage } from "../admin/nav.jsx";
+import CommandPalette from "../admin/CommandPalette.jsx";
+import {
+  IconChevronDown,
+  IconChevronRight,
+  IconClose,
+  IconLogout,
+  IconMenu,
+  IconMonitor,
+  IconMoon,
+  IconPanel,
+  IconSearch,
+  IconSun,
+} from "../admin/icons.jsx";
+import "../admin/admin-theme.css";
 
-const NAV_ITEMS = [
-  {
-    type: "link",
-    to: "/admin/students",
-    label: "Tài khoản học viên",
-    icon: <UsersIcon />,
-  },
-  {
-    type: "group",
-    label: "Luyện nghe nói qua video AI",
-    icon: <VideoIcon />,
-    children: [
-      { to: "/admin/gtc/curricula", label: "Giáo trình", available: true },
-      { to: "/admin/gtc/courses", label: "Khóa học", available: true },
-      { to: "/admin/gtc/lessons", label: "Bài học", available: true },
-    ],
-  },
-  {
-    type: "group",
-    label: "Học liệu khoá học",
-    icon: <SlidesIcon />,
-    children: [
-      { to: "/admin/materials/courses", label: "Khoá học liệu", available: true },
-      { to: "/admin/materials/decks", label: "Bộ slide", available: true },
-      { to: "/admin/materials/videos", label: "Video bài giảng", available: true },
-      { to: "/admin/materials/access", label: "Cấp quyền", available: true },
-      { to: "/admin/materials/ai-grading", label: "Cấu hình AI chấm", available: true },
-    ],
-  },
-];
+/**
+ * Khung trang quản trị kiểu dashboard hiện đại:
+ *  - thanh bên nằm trên nền, thu gọn được thành cột biểu tượng (rê chuột vào
+ *    nhóm để hiện menu con);
+ *  - nội dung nằm trong một "bảng" nổi bo góc (inset);
+ *  - bảng lệnh ⌘K / Ctrl+K để tới nhanh mọi trang;
+ *  - giao diện Sáng / Tối / Theo máy.
+ * Màu lấy từ biến CSS trong admin/admin-theme.css.
+ */
+const SIDEBAR_KEY = "admin_sidebar";
+const readCollapsed = () => {
+  try {
+    return localStorage.getItem(SIDEBAR_KEY) === "collapsed";
+  } catch {
+    return false;
+  }
+};
 
-export default function AdminLayout() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 
-  // Mở sẵn nhóm menu nào có route con đang active, để vào thẳng trang con
-  // không bị "ẩn mất" trong nhóm đóng.
-  const [openGroups, setOpenGroups] = useState(() =>
-    NAV_ITEMS.filter(
-      (item) =>
-        item.type === "group" &&
-        item.children.some((c) => location.pathname.startsWith(c.to)),
-    ).map((item) => item.label),
-  );
+const initials = (name) =>
+  String(name || "Admin")
+    .trim()
+    .split(/\s+/)
+    .slice(-2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
 
-  const toggleGroup = (label) => {
-    setOpenGroups((groups) =>
-      groups.includes(label)
-        ? groups.filter((g) => g !== label)
-        : [...groups, label],
-    );
-  };
-
-  const handleLogout = () => {
-    clearAdminSession();
-    navigate("/login");
-  };
-
+function itemClass(active, rail) {
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-30 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+    "relative flex items-center gap-2.5 h-9 rounded-lg text-[13.5px] transition-colors " +
+    (rail ? "justify-center w-full " : "px-2.5 ") +
+    (active
+      ? "bg-[var(--a-panel)] text-[var(--a-text)] font-medium shadow-[0_1px_2px_rgba(0,0,0,.06),0_0_0_1px_var(--a-border)] [&>svg]:text-[var(--a-accent-strong)]"
+      : "text-[var(--a-text-4)] hover:text-[var(--a-text)] hover:bg-[var(--a-hover-strong)]")
+  );
+}
 
-      <aside
-        className={
-          "fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 flex flex-col transition-transform duration-200 " +
-          "lg:static lg:translate-x-0 lg:z-auto " +
-          (sidebarOpen ? "translate-x-0" : "-translate-x-full")
-        }
-      >
-        <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="min-w-0">
-              <img className="h-12" src="/images/logo-moliifm.webp" alt="" />
-              <p className="text-[11px] text-gray-400 leading-tight mt-2">
-                Trang quản trị
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-50 lg:hidden shrink-0"
-          >
-            <CloseIcon />
-          </button>
+function Avatar({ name }) {
+  return (
+    <span className="w-8 h-8 rounded-full shrink-0 grid place-items-center text-[11px] font-semibold text-[#3b2a00] bg-[conic-gradient(from_180deg,#ffd76b,#f5a524,#ffe7a3,#ffd76b)] ring-2 ring-[var(--a-panel)] shadow-sm">
+      {initials(name)}
+    </span>
+  );
+}
+
+/** Nhóm menu ở chế độ thu gọn: biểu tượng + menu con hiện khi rê chuột / focus. */
+function RailGroup({ item, active }) {
+  return (
+    <div className="relative group/rail">
+      <button type="button" className={itemClass(active, true)} aria-label={item.label} aria-haspopup="menu">
+        <item.icon size={17} />
+      </button>
+      <div className="invisible opacity-0 group-hover/rail:visible group-hover/rail:opacity-100 group-focus-within/rail:visible group-focus-within/rail:opacity-100 transition-opacity absolute left-full top-0 pl-3 z-50">
+        <div role="menu" className="w-56 rounded-xl border border-[var(--a-border)] bg-[var(--a-panel)] shadow-[var(--a-shadow-lg)] p-1.5">
+          <p className="px-2.5 py-1.5 text-[11.5px] font-medium text-[var(--a-faint)]">{item.label}</p>
+          {item.children.map((c) => (
+            <NavLink key={c.to} to={c.to} role="menuitem" className={({ isActive }) => itemClass(isActive, false) + " text-[13px]"}>
+              <c.icon size={15} />
+              {c.label}
+            </NavLink>
+          ))}
         </div>
-
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.map((item) =>
-            item.type === "link" ? (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition " +
-                  (isActive
-                    ? "bg-primary/20 text-primary-dark font-medium"
-                    : "text-gray-600 hover:bg-gray-50")
-                }
-              >
-                {item.icon}
-                {item.label}
-              </NavLink>
-            ) : (
-              <div key={item.label}>
-                <button
-                  onClick={() => toggleGroup(item.label)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
-                >
-                  {item.icon}
-                  <span className="flex-1 text-left">{item.label}</span>
-                  <ChevronIcon open={openGroups.includes(item.label)} />
-                </button>
-
-                {openGroups.includes(item.label) && (
-                  <div className="mt-1 ml-4 pl-3 border-l border-gray-100 space-y-1">
-                    {item.children.map((child) =>
-                      child.available ? (
-                        <NavLink
-                          key={child.to}
-                          to={child.to}
-                          onClick={() => setSidebarOpen(false)}
-                          className={({ isActive }) =>
-                            "block px-3 py-2 rounded-lg text-sm transition " +
-                            (isActive
-                              ? "bg-primary/20 text-primary-dark font-medium"
-                              : "text-gray-500 hover:bg-gray-50")
-                          }
-                        >
-                          {child.label}
-                        </NavLink>
-                      ) : (
-                        <span
-                          key={child.label}
-                          className="flex items-center justify-between px-3 py-2 rounded-lg text-sm text-gray-300 cursor-not-allowed"
-                        >
-                          {child.label}
-                          <span className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">
-                            Sắp có
-                          </span>
-                        </span>
-                      ),
-                    )}
-                  </div>
-                )}
-              </div>
-            ),
-          )}
-        </nav>
-
-        <div className="px-3 py-4 border-t border-gray-100">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-gray-500 hover:bg-gray-50 w-full"
-          >
-            <LogoutIcon /> Đăng xuất
-          </button>
-        </div>
-      </aside>
-
-      <div className="flex-1 min-w-0">
-        <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-50 lg:hidden shrink-0"
-            >
-              <MenuIcon />
-            </button>
-            <p className="text-sm text-gray-400 truncate hidden sm:block">
-              Khu vực quản trị
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="w-8 h-8 rounded-full bg-primary/30 flex items-center justify-center text-xs font-medium">
-              AD
-            </span>
-            <span className="text-sm font-medium hidden sm:inline">
-              {getAdminInfo()?.name || "Admin"}
-            </span>
-          </div>
-        </header>
-
-        <main className="p-4 sm:p-6">
-          <Outlet />
-        </main>
       </div>
     </div>
   );
 }
 
-function UsersIcon() {
+function usePopover() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (e) => {
+      if (!ref.current?.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  return { open, setOpen, ref };
+}
+
+const THEMES = [
+  ["light", "Sáng", <IconSun key="l" size={15} />],
+  ["dark", "Tối", <IconMoon key="d" size={15} />],
+  ["system", "Theo máy", <IconMonitor key="s" size={15} />],
+];
+
+/** Nút giao diện trên thanh trên: biểu tượng hiện tại + menu chọn Sáng / Tối / Theo máy. */
+function ThemeMenu({ mode, dark, onChange }) {
+  const { open, setOpen, ref } = usePopover();
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <circle cx="9" cy="8" r="3.5" />
-      <path
-        d="M2.5 20a6.5 6.5 0 0113 0M16 8.5a3 3 0 110-6M22 20a5.5 5.5 0 00-6.5-5.4"
-        strokeLinecap="round"
-      />
-    </svg>
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Đổi giao diện"
+        title="Giao diện"
+        className="w-9 h-9 rounded-lg grid place-items-center text-[var(--a-muted)] hover:text-[var(--a-text)] hover:bg-[var(--a-hover)]"
+      >
+        {dark ? <IconMoon size={17} /> : <IconSun size={17} />}
+      </button>
+      {open && (
+        <div role="radiogroup" aria-label="Giao diện" className="adm-pop absolute right-0 mt-2 w-44 rounded-xl border border-[var(--a-border)] bg-[var(--a-panel)] shadow-[var(--a-shadow-lg)] p-1.5 z-50">
+          {THEMES.map(([value, label, icon]) => {
+            const on = mode === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                aria-label={`Giao diện: ${label}`}
+                onClick={() => {
+                  onChange(value);
+                  setOpen(false);
+                }}
+                className={"w-full flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13px] " + (on ? "bg-[var(--a-hover-strong)] text-[var(--a-text)] font-medium" : "text-[var(--a-text-4)] hover:bg-[var(--a-hover)]")}
+              >
+                {icon}
+                <span className="flex-1 text-left">{label}</span>
+                {on && <span className="w-1.5 h-1.5 rounded-full bg-[var(--a-accent)]" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
-function VideoIcon() {
+function UserMenu({ name, email, onLogout }) {
+  const { open, setOpen, ref } = usePopover();
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <rect x="2" y="5" width="15" height="14" rx="2" />
-      <path
-        d="M17 9.5l5-3v11l-5-3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} aria-label="Tài khoản" className="rounded-full hover:ring-4 hover:ring-[var(--a-hover-strong)] transition">
+        <Avatar name={name} />
+      </button>
+      {open && (
+        <div role="menu" className="adm-pop absolute right-0 mt-2 w-64 rounded-xl border border-[var(--a-border)] bg-[var(--a-panel)] shadow-[var(--a-shadow-lg)] p-1.5 z-50">
+          <div className="flex items-center gap-3 px-2.5 py-2.5">
+            <Avatar name={name} />
+            <div className="min-w-0">
+              <p className="text-[13.5px] font-medium text-[var(--a-text)] truncate">{name || "Admin"}</p>
+              {email && <p className="text-xs text-[var(--a-muted)] truncate">{email}</p>}
+            </div>
+          </div>
+          <div className="h-px bg-[var(--a-border-soft)] my-1" />
+          <button type="button" role="menuitem" onClick={onLogout} className="w-full flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13px] text-[var(--a-text-3)] hover:bg-[var(--a-hover)] hover:text-red-600">
+            <IconLogout size={15} /> Đăng xuất
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
-function LogoutIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path
-        d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+export default function AdminLayout() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { mode, setMode, dark } = useAdminTheme();
+  const admin = getAdminInfo();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const page = currentPage(location.pathname);
 
-function MenuIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />
-    </svg>
+  // Mở sẵn nhóm có trang đang mở.
+  const [openGroups, setOpenGroups] = useState(() =>
+    NAV_SECTIONS.flatMap((s) => s.items)
+      .filter((i) => i.type === "group" && i.children.some((c) => location.pathname.startsWith(c.to)))
+      .map((i) => i.label),
   );
-}
+  const toggleGroup = (label) => setOpenGroups((g) => (g.includes(label) ? g.filter((x) => x !== label) : [...g, label]));
 
-function CloseIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
-    </svg>
-  );
-}
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      try {
+        localStorage.setItem(SIDEBAR_KEY, c ? "open" : "collapsed");
+      } catch {
+        // bỏ qua
+      }
+      return !c;
+    });
+  };
 
-function ChevronIcon({ open }) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      className={"transition-transform " + (open ? "rotate-180" : "")}
-    >
-      <polyline
-        points="6 9 12 15 18 9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+  const handleLogout = useCallback(() => {
+    clearAdminSession();
+    navigate("/login");
+  }, [navigate]);
 
-function SlidesIcon() {
+  // ⌘K / Ctrl+K: bảng lệnh.
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const crumbs = !page ? ["Khu vực quản trị"] : !page.end && location.pathname.length > page.to.length + 1 ? [...page.trail, "Chi tiết"] : page.trail;
+  const rail = collapsed && !mobileOpen;
+
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="3" y="4" width="18" height="12" rx="2" />
-      <path d="M12 16v4M8 20h8" strokeLinecap="round" />
-    </svg>
+    <div className={"admin-root min-h-screen lg:flex lg:p-2" + (dark ? " dark" : "")} style={{ "--a-sidebar-w": collapsed ? "76px" : "268px" }}>
+      {mobileOpen && <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setMobileOpen(false)} />}
+
+      <aside
+        className={
+          "fixed inset-y-0 left-0 z-40 flex flex-col transition-[width,transform] duration-200 w-[280px] " +
+          "bg-[var(--a-panel)] border-r border-[var(--a-border)] lg:bg-transparent lg:border-0 " +
+          "lg:sticky lg:top-2 lg:h-[calc(100vh-16px)] lg:translate-x-0 lg:z-30 " +
+          (rail ? "lg:w-[68px] " : "lg:w-[260px] ") +
+          (mobileOpen ? "translate-x-0" : "-translate-x-full")
+        }
+      >
+        {/* Đầu thanh bên: thương hiệu */}
+        <div className={"h-14 flex items-center gap-2.5 shrink-0 " + (rail ? "justify-center" : "px-3")}>
+          <span className="w-9 h-9 rounded-[10px] bg-[#ffffff] grid place-items-center shrink-0 shadow-[0_1px_2px_rgba(0,0,0,.08)] ring-1 ring-black/5 overflow-hidden">
+            <img src="/images/logo-moliifm.webp" alt="Molii" className="w-8 h-8 object-contain" />
+          </span>
+          {!rail && (
+            <div className="min-w-0 flex-1">
+              <p className="text-[13.5px] font-semibold text-[var(--a-text)] leading-tight truncate">Molii Education</p>
+              <p className="text-[11.5px] text-[var(--a-muted)] leading-tight">Bảng quản trị</p>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(false)}
+            className="w-8 h-8 rounded-lg grid place-items-center text-[var(--a-muted)] hover:bg-[var(--a-hover)] lg:hidden"
+            aria-label="Đóng menu"
+          >
+            <IconClose size={16} />
+          </button>
+        </div>
+
+        {/* Tìm nhanh */}
+        <div className={"px-3 " + (rail ? "mb-2" : "mb-3")}>
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            title="Tìm nhanh (Ctrl K)"
+            className={
+              "w-full h-9 flex items-center gap-2 rounded-lg border border-[var(--a-border)] bg-[var(--a-panel)] text-[var(--a-muted)] hover:text-[var(--a-text)] shadow-[var(--a-shadow)] transition-colors " +
+              (rail ? "justify-center" : "px-2.5")
+            }
+          >
+            <IconSearch size={15} />
+            {!rail && (
+              <>
+                <span className="flex-1 text-left text-[13px]">Tìm nhanh…</span>
+                <kbd className="adm-kbd">{isMac ? "⌘" : "Ctrl"}</kbd>
+                <kbd className="adm-kbd">K</kbd>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Thu gọn: không cuộn (để menu con nổi ra ngoài được), ít mục nên vẫn đủ chỗ. */}
+        <nav className={"flex-1 pb-3 " + (rail ? "px-3 overflow-visible" : "px-2 overflow-y-auto")} aria-label="Menu quản trị">
+          {NAV_SECTIONS.map((section) => (
+            <div key={section.label} className="mb-4">
+              {!rail ? <p className="px-2.5 mb-1 text-[11.5px] font-medium text-[var(--a-faint)]">{section.label}</p> : <div className="mx-auto mb-2 w-5 h-px bg-[var(--a-border)]" />}
+              <div className="space-y-px">
+                {section.items.map((item) =>
+                  item.type === "link" ? (
+                    <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setMobileOpen(false)} title={rail ? item.label : undefined} className={({ isActive }) => itemClass(isActive, rail)}>
+                      <item.icon size={17} />
+                      {!rail && <span className="truncate">{item.label}</span>}
+                    </NavLink>
+                  ) : rail ? (
+                    <RailGroup key={item.label} item={item} active={item.children.some((c) => location.pathname.startsWith(c.to))} />
+                  ) : (
+                    <div key={item.label}>
+                      <button type="button" onClick={() => toggleGroup(item.label)} aria-expanded={openGroups.includes(item.label)} className={itemClass(false, false) + " w-full"}>
+                        <item.icon size={17} />
+                        <span className="flex-1 text-left truncate">{item.label}</span>
+                        <IconChevronDown size={14} className={"transition-transform text-[var(--a-faint)] " + (openGroups.includes(item.label) ? "" : "-rotate-90")} />
+                      </button>
+                      {openGroups.includes(item.label) && (
+                        <div className="mt-px mb-1 space-y-px">
+                          {item.children.map((c) => (
+                            <NavLink key={c.to} to={c.to} onClick={() => setMobileOpen(false)} className={({ isActive }) => itemClass(isActive, false) + " pl-[34px] text-[13px]"}>
+                              <c.icon size={15} />
+                              <span className="truncate">{c.label}</span>
+                            </NavLink>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ),
+                )}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        {/* Tài khoản + thu gọn */}
+        <div className={"shrink-0 p-2 " + (rail ? "flex flex-col items-center gap-2" : "")}>
+          {!rail ? (
+            <div className="flex items-center gap-2.5 rounded-xl px-2 py-2 hover:bg-[var(--a-hover)]">
+              <Avatar name={admin?.name} />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-[var(--a-text)] truncate">{admin?.name || "Admin"}</p>
+                <p className="text-[11.5px] text-[var(--a-muted)] truncate">{admin?.email || "Quản trị viên"}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Đăng xuất"
+                aria-label="Đăng xuất"
+                className="w-8 h-8 rounded-lg grid place-items-center text-[var(--a-muted)] hover:text-red-600 hover:bg-[var(--a-hover-strong)]"
+              >
+                <IconLogout size={16} />
+              </button>
+            </div>
+          ) : (
+            <Avatar name={admin?.name} />
+          )}
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            title={collapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
+            aria-label={collapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
+            className={"hidden lg:flex h-8 items-center gap-2 rounded-lg text-[12.5px] text-[var(--a-muted)] hover:text-[var(--a-text)] hover:bg-[var(--a-hover)] " + (rail ? "w-8 justify-center" : "w-full px-2.5 mt-1")}
+          >
+            <IconPanel size={16} />
+            {!rail && "Thu gọn"}
+          </button>
+        </div>
+      </aside>
+
+      <div className="adm-panel flex-1 min-w-0 min-h-screen lg:min-h-[calc(100vh-16px)] flex flex-col">
+        <header className="sticky top-0 z-20 h-14 shrink-0 px-4 sm:px-6 flex items-center gap-2 sm:gap-3 border-b border-[var(--a-border-soft)] bg-[color-mix(in_srgb,var(--a-panel)_80%,transparent)] backdrop-blur-xl">
+          <button type="button" onClick={() => setMobileOpen(true)} className="w-9 h-9 -ml-1 rounded-lg grid place-items-center text-[var(--a-muted)] hover:bg-[var(--a-hover)] lg:hidden" aria-label="Mở menu">
+            <IconMenu size={18} />
+          </button>
+          <nav className="min-w-0 flex-1 flex items-center gap-1 text-[13.5px]" aria-label="Đường dẫn">
+            {crumbs.map((c, i) => {
+              const last = i === crumbs.length - 1;
+              return (
+                <span key={c + i} className={"items-center gap-1 min-w-0 " + (last ? "flex" : "hidden sm:flex")}>
+                  {i > 0 && <IconChevronRight size={14} className="text-[var(--a-fainter)] shrink-0 hidden sm:block" />}
+                  <span className={"truncate " + (last ? "font-medium text-[var(--a-text)]" : "text-[var(--a-muted)]")}>{c}</span>
+                </span>
+              );
+            })}
+          </nav>
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="hidden md:flex items-center gap-2 h-8 pl-2.5 pr-1.5 rounded-lg border border-[var(--a-border)] bg-[var(--a-surface-2)] text-[13px] text-[var(--a-muted)] hover:text-[var(--a-text)] w-56"
+          >
+            <IconSearch size={14} />
+            <span className="flex-1 text-left">Tìm trang, lệnh…</span>
+            <kbd className="adm-kbd">{isMac ? "⌘K" : "Ctrl K"}</kbd>
+          </button>
+          <ThemeMenu mode={mode} dark={dark} onChange={setMode} />
+          <UserMenu name={admin?.name} email={admin?.email} onLogout={handleLogout} />
+        </header>
+
+        <main className="flex-1 px-4 sm:px-8 py-7">
+          <div key={location.pathname} className="adm-fade max-w-[1320px] mx-auto">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onTheme={setMode} onLogout={handleLogout} />
+    </div>
   );
 }

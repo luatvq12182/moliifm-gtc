@@ -17,6 +17,17 @@ export const features = [
         thumbnail: '/images/features/hoc-lieu-khoa-hoc.webp',
         tags: ['Slide bài giảng', 'Theo từng khoá học'],
     },
+    {
+        id: 'luyen-thi-hsk',
+        name: 'LUYỆN THI HSK 3.0 CÙNG MOLII FM',
+        description: 'Video hướng dẫn kỹ năng thi và luyện đề thi thử HSK 3.0',
+        available: true,
+        // Chỉ hiện với học viên được cấp quyền ít nhất một cấp thi (Student.examAccess).
+        requires: 'examAccess',
+        route: '/luyen-thi',
+        thumbnail: '/images/features/luyen-thi-hsk.webp',
+        tags: ['Hướng dẫn kỹ năng thi', 'Luyện đề HSK 3.0', 'AI chấm điểm'],
+    },
     // {
     //     id: 'format-2',
     //     name: 'Khóa học tiếng Trung Format 2.0',
