@@ -12,7 +12,7 @@ import { myExamVideoThumbPath, useMyExamLevel } from "../../hooks/useExam.js";
  */
 const SECTIONS = [
   { id: "ky-nang", label: "Hướng dẫn kỹ năng thi" },
-  { id: "luyen-de", label: "Luyện đề AI chấm chữa" },
+  { id: "luyen-de", label: "Luyện đề" },
 ];
 
 export default function ExamLevelPage() {

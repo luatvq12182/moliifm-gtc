@@ -41,7 +41,7 @@ const mmss = (ms) => {
 };
 const editableOf = (sectionId) => (sectionId === "review" ? "listening" : sectionId);
 const SECTION_HINT = {
-  listening: "Nghe và chọn đáp án. File nghe phát một lần, không dừng, không tua.",
+  listening: "Nghe và chọn đáp án",
   review: "Không có tiếng. Kiểm tra và sửa lại đáp án phần nghe.",
   reading: "Đọc đề bên trái và chọn đáp án.",
   writing: "Viết câu trả lời. Bàn phím cần bật bộ gõ tiếng Trung.",
