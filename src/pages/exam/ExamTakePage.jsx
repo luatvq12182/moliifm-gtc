@@ -562,35 +562,55 @@ function AnswerGroup({ group, answers, keywords, onChange, onShowPage }) {
   );
 }
 
+/**
+ * Trang kết quả: bố cục tràn khung như màn làm bài — KHÔNG có thanh đầu trang
+ * của site, chỉ một dòng mỏng (nút quay lại, tên bài, điểm), rồi hai cột
+ * 50/50 chiếm hết phần còn lại, mỗi bên tự cuộn.
+ */
 function Result({ data, backTo }) {
-  const [tab, setTab] = useState("result");
+  const [tab, setTab] = useState("result"); // điện thoại: Kết quả / Đề thi gốc
+  const [jump, setJump] = useState(null);
   const regrade = useRegradeMyAttempt(data._id);
   const at = data.submittedAt ? new Date(data.submittedAt) : null;
   const r = data.result;
+  const showPage = (n) => {
+    setJump((j) => ({ n, seq: (j?.seq || 0) + 1 }));
+    setTab("paper");
+  };
   return (
-    <div className="h-[100dvh] flex flex-col bg-orange-50/40">
-      <header className="shrink-0 bg-white border-b border-orange-200 px-3 sm:px-4 py-2 flex flex-wrap items-center gap-x-4 gap-y-2">
-        <Link to={backTo} className="text-sm text-gray-500 hover:text-gray-800 shrink-0">
-          ← Danh sách đề
+    <div className="h-[100dvh] flex flex-col">
+      <div className="shrink-0 flex items-center gap-x-2 sm:gap-x-3 px-2 sm:px-3 h-11 bg-white border-b border-orange-100 text-sm">
+        <Link to={backTo} className="inline-flex items-center gap-1 h-8 px-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900 shrink-0" title="Về danh sách đề">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+          <span className="hidden sm:inline">Danh sách đề</span>
         </Link>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-heading font-semibold text-gray-900 truncate">Kết quả · {data.title}</p>
-          <p className="text-xs text-gray-500 truncate">
-            {data.candidate.name}
-            {at && ` · nộp lúc ${at.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} ${at.toLocaleDateString("vi-VN")}`}
+        <span className="h-5 w-px bg-gray-200 shrink-0" />
+        <p className="min-w-0 flex-1 truncate text-gray-700">
+          <b className="text-gray-900">Kết quả · {data.title}</b>
+          <span className="hidden md:inline">
+            {" "}
+            · {data.candidate.name}
+            {at && ` · Nộp lúc ${at.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}, ${at.toLocaleDateString("vi-VN")}`}
             {data.submitReason === "time" && " (hết giờ, tự nộp)"}
-          </p>
-        </div>
+          </span>
+        </p>
+        <Link to={`/luyen-thi/${data.level.slug}/de/${data.testId}`} className="shrink-0 inline-flex items-center gap-1 h-7 px-2.5 rounded-full border border-orange-300 text-orange-700 text-xs font-medium hover:bg-orange-50">
+          ↻ <span className="hidden sm:inline">Làm lại đề</span>
+        </Link>
         {r && (
-          <span className={"text-sm font-semibold px-3 py-1 rounded-full " + (r.passed ? "bg-green-100 text-green-800" : "bg-red-50 text-red-700")}>
-            {r.total}/{r.max}
+          <span className={"shrink-0 inline-flex items-baseline gap-1.5 h-7 px-2.5 rounded-full border text-xs " + (r.passed ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800")}>
+            <b className="text-base">{r.total}</b>/{r.max} · {r.passed ? "Đạt" : "Chưa đạt"}
+            {r.ai?.status === "pending" && " · tạm tính"}
           </span>
         )}
-      </header>
+      </div>
+
       <div className="lg:hidden shrink-0 grid grid-cols-2 bg-white border-b border-orange-100 text-sm" role="tablist">
         {[
           ["result", "Kết quả"],
-          ["paper", "Đề thi"],
+          ["paper", "Đề thi gốc"],
         ].map(([v, label]) => (
           <button
             key={v}
@@ -598,27 +618,110 @@ function Result({ data, backTo }) {
             role="tab"
             aria-selected={tab === v}
             onClick={() => setTab(v)}
-            className={"py-2.5 font-medium border-b-2 " + (tab === v ? "border-primary-dark text-gray-900" : "border-transparent text-gray-500")}
+            className={"py-2 font-medium border-b-2 " + (tab === v ? "border-primary-dark text-gray-900" : "border-transparent text-gray-500")}
           >
             {label}
           </button>
         ))}
       </div>
+
       <div className="flex-1 min-h-0 grid lg:grid-cols-2">
-        <Paper attemptId={data._id} pages={data.pages} hidden={tab !== "paper"} jump={null} />
-        <section className={"min-h-0 overflow-y-auto px-3 sm:px-5 py-4 lg:border-l border-orange-100 " + (tab !== "result" ? "hidden lg:block" : "")}>
-          <div className="max-w-2xl mx-auto pb-8">
-            {r ? (
-              <ExamResultView result={r} groups={data.groups} onRegrade={() => regrade.mutate()} regrading={regrade.isPending} />
-            ) : (
-              <div className="py-16 text-center">
-                <p className="text-4xl">⏳</p>
-                <p className="mt-2 text-gray-700">Đã nộp bài — đang chấm…</p>
-              </div>
-            )}
-          </div>
+        <PaperCard attemptId={data._id} pages={data.pages} jump={jump} className={tab !== "paper" ? "hidden lg:flex" : "flex"} />
+        <section className={"min-h-0 overflow-y-auto bg-white lg:border-l border-orange-100 " + (tab !== "result" ? "hidden lg:block" : "")}>
+          {r ? (
+            <ExamResultView bare result={r} groups={data.groups} explanations={data.explanations || {}} onShowPage={showPage} onRegrade={() => regrade.mutate()} regrading={regrade.isPending} />
+          ) : (
+            <div className="py-16 text-center">
+              <p className="text-4xl">⏳</p>
+              <p className="mt-2 text-gray-700">Đã nộp bài — đang chấm…</p>
+            </div>
+          )}
         </section>
       </div>
     </div>
+  );
+}
+
+/**
+ * Khung "Đề thi gốc" của trang kết quả: thanh công cụ (trang đang xem, phóng
+ * to / thu nhỏ, toàn màn hình) + ảnh từng trang cuộn dọc. `jump` = { n, seq }.
+ */
+function PaperCard({ attemptId, pages, jump, className = "" }) {
+  const boxRef = useRef(null);
+  const scrollRef = useRef(null);
+  const appliedRef = useRef(-1);
+  const [zoom, setZoom] = useState(100);
+  const [page, setPage] = useState(1);
+  const [full, setFull] = useState(false);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!jump?.n || appliedRef.current === jump.seq || !el || el.offsetParent === null) return;
+    appliedRef.current = jump.seq;
+    const target = el.querySelector(`[data-page="${jump.n}"]`);
+    if (target) el.scrollTo({ top: target.offsetTop - 12, behavior: "smooth" });
+  }, [jump, className]);
+
+  useEffect(() => {
+    const onFs = () => setFull(document.fullscreenElement === boxRef.current);
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
+
+  // Trang đang xem = trang có phần lớn nằm ở đầu khung cuộn.
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const mid = el.scrollTop + el.clientHeight * 0.3;
+    let n = 1;
+    for (const d of el.querySelectorAll("[data-page]")) if (d.offsetTop <= mid) n = Number(d.dataset.page);
+    setPage(n);
+  };
+
+  const toggleFull = () => {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else boxRef.current?.requestFullscreen?.();
+  };
+  const btn = "w-7 h-7 rounded-md border border-gray-200 bg-white grid place-items-center text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40";
+
+  return (
+    <section ref={boxRef} className={"flex-col h-full min-h-0 bg-white " + (full ? "!h-screen " : "") + className}>
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100">
+        <span className="text-sm font-bold text-gray-900 mr-1">Đề thi gốc</span>
+        <span className="inline-flex items-center gap-1.5 text-[13px] text-gray-600">
+          <span className="w-7 h-7 rounded-md bg-gray-100 grid place-items-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z" />
+              <path d="M14 3v6h6" />
+            </svg>
+          </span>
+          Trang {page} / {pages.length}
+        </span>
+        <span className="ml-auto flex items-center gap-1.5">
+          <button type="button" className={btn} onClick={() => setZoom((z) => Math.max(60, z - 20))} disabled={zoom <= 60} aria-label="Thu nhỏ">
+            −
+          </button>
+          <span className="w-11 text-center text-[13px] text-gray-700 tabular-nums">{zoom}%</span>
+          <button type="button" className={btn} onClick={() => setZoom((z) => Math.min(200, z + 20))} disabled={zoom >= 200} aria-label="Phóng to">
+            +
+          </button>
+          <button type="button" className={btn + " ml-2"} onClick={toggleFull} aria-label={full ? "Thoát toàn màn hình" : "Toàn màn hình"} title={full ? "Thoát toàn màn hình" : "Toàn màn hình"}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              {full ? <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" /> : <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />}
+            </svg>
+          </button>
+        </span>
+      </div>
+      <div ref={scrollRef} onScroll={onScroll} className="relative flex-1 min-h-0 overflow-auto bg-gray-100 p-3 sm:p-4">
+        <div className="mx-auto space-y-4" style={{ width: `${zoom}%`, maxWidth: zoom <= 100 ? 760 : undefined }}>
+          {pages.map((p) => (
+            <div key={p.n} data-page={p.n} className="relative bg-white shadow" style={{ aspectRatio: `${p.width || 3} / ${p.height || 4}` }}>
+              <AuthImage path={myAttemptPagePath(attemptId, p.n)} alt={`Trang ${p.n}`} className="absolute inset-0 w-full h-full" />
+            </div>
+          ))}
+          {pages.length === 0 && <p className="text-sm text-gray-500 p-6 text-center">Đề chưa có trang nào.</p>}
+        </div>
+      </div>
+    </section>
   );
 }
