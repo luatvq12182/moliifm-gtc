@@ -367,6 +367,10 @@
 .admin-root.dark :is(.text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900, .text-yellow-700, .text-orange-700) { color: #fbbf24; }
 .admin-root.dark :is(.border-amber-100, .border-amber-200, .border-amber-300, .border-orange-200, .border-orange-300) { border-color: rgba(245, 158, 11, 0.3); }
 
+.admin-root.dark :is(.bg-blue-50, .bg-blue-50\/70, .bg-blue-50\/60) { background-color: rgba(59, 130, 246, 0.14); }
+.admin-root.dark :is(.text-blue-700, .text-blue-600) { color: #93c5fd; }
+.admin-root.dark .border-blue-100 { border-color: rgba(59, 130, 246, 0.3); }
+
 .admin-root.dark .bg-violet-50 { background-color: rgba(139, 92, 246, 0.14); }
 .admin-root.dark .text-violet-700 { color: #a78bfa; }
 .admin-root.dark .border-violet-200 { border-color: rgba(139, 92, 246, 0.32); }

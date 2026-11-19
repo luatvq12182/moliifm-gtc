@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDeleteExamAttempt, useExamAttempt, useRegradeExamAttempt } from "../../../hooks/useExam.js";
-import ExamResultView from "../../../components/exam/ExamResultView.jsx";
+import ExamResultView, { ScoreSummary } from "../../../components/exam/ExamResultView.jsx";
 import { useConfirm } from "../../../components/admin/ConfirmDialog.jsx";
 import { useToasts, ToastStack } from "../../../components/admin/Toast.jsx";
 
@@ -37,7 +37,7 @@ export default function AdminExamResultDetailPage() {
   };
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-5xl">
       <Link to="/admin/exam/results" className="text-sm text-gray-500 hover:text-gray-800">
         ← Kết quả luyện thi
       </Link>
@@ -46,17 +46,22 @@ export default function AdminExamResultDetailPage() {
       {a && (
         <>
           <div className="flex flex-col sm:flex-row sm:items-start gap-3 mt-2 mb-4">
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <h1 className="text-xl font-heading font-semibold">{a.candidate.name}</h1>
-              <p className="text-sm text-gray-600">
-                {a.candidate.phone}
-                {a.candidate.classCode && ` · lớp ${a.candidate.classCode}`}
-                {a.student && ` · tài khoản ${a.student.name} (${a.student.phone})`}
-              </p>
-              <p className="text-sm text-gray-500 mt-0.5">
-                {a.title} · {a.level?.name} · bắt đầu {fmt(a.startedAt)} ·{" "}
-                {a.status === "submitted" ? `nộp ${fmt(a.submittedAt)}${a.submitReason === "time" ? " (hết giờ, tự nộp)" : ""}` : "đang làm"}
-              </p>
+              <dl className="mt-2 grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_1fr] gap-x-3 gap-y-1 text-sm">
+                <Row label="Số điện thoại">{a.candidate.phone || "—"}</Row>
+                <Row label="Lớp">{a.candidate.classCode || "—"}</Row>
+                <Row label="Tài khoản">{a.student ? `${a.student.name} · ${a.student.phone}` : "—"}</Row>
+                <Row label="Đề">
+                  {a.title}
+                  {a.level?.name && <span className="text-gray-500"> · {a.level.name}</span>}
+                </Row>
+                <Row label="Bắt đầu">{fmt(a.startedAt)}</Row>
+                <Row label="Nộp lúc">
+                  {a.status === "submitted" ? fmt(a.submittedAt) : "Đang làm"}
+                  {a.submitReason === "time" && <span className="ml-1.5 text-[11px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700">hết giờ, tự nộp</span>}
+                </Row>
+              </dl>
             </div>
             <div className="flex gap-2 shrink-0">
               {a.status === "submitted" && (
@@ -70,7 +75,10 @@ export default function AdminExamResultDetailPage() {
             </div>
           </div>
           {a.status === "submitted" ? (
-            <ExamResultView result={a.result} groups={a.groups} />
+            <div className="space-y-4">
+              <ScoreSummary result={a.result} />
+              <ExamResultView result={a.result} groups={a.groups} explanations={a.explanations || {}} />
+            </div>
           ) : (
             <p className="bg-white rounded-2xl border border-gray-200 p-6 text-sm text-gray-500">Học viên đang làm bài này (phần {a.sections.find((x) => x.id === a.section)?.label || "—"}). Có kết quả sau khi nộp.</p>
           )}
@@ -79,5 +87,15 @@ export default function AdminExamResultDetailPage() {
       {dialog}
       <ToastStack toasts={toast.items} onDismiss={toast.dismiss} />
     </div>
+  );
+}
+
+/** Một dòng nhãn / giá trị trong bảng thông tin bài làm. */
+function Row({ label, children }) {
+  return (
+    <>
+      <dt className="text-gray-500 whitespace-nowrap">{label}</dt>
+      <dd className="text-gray-900 min-w-0 truncate">{children}</dd>
+    </>
   );
 }
