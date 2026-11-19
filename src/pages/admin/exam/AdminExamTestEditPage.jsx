@@ -48,7 +48,7 @@ export default function AdminExamTestEditPage() {
 
 // ---------- trạng thái sửa trên trang ----------
 
-const emptyItem = (no) => ({ no, answer: "", keyword: "", sample: "", hint: "" });
+const emptyItem = (no) => ({ no, answer: "", keyword: "", sample: "", hint: "", script: "", explain: "" });
 
 /** Dữ liệu máy chủ -> dạng sửa trên trang (cố định thứ tự khoá để so sánh "đã sửa chưa"). */
 function fromServer(t) {
@@ -76,9 +76,17 @@ function fromServer(t) {
 /** Dạng gửi lên / so sánh: đáp án là mảng, bỏ câu trống. */
 function toPayload(form) {
   const items = Object.values(form.items)
-    .filter((it) => it.answer || it.keyword || it.sample || it.hint)
+    .filter((it) => it.answer || it.keyword || it.sample || it.hint || it.script || it.explain)
     .sort((a, b) => a.no - b.no)
-    .map((it) => ({ no: it.no, answer: it.answer.trim(), keyword: it.keyword.trim(), sample: it.sample.trim(), hint: it.hint.trim() }));
+    .map((it) => ({
+      no: it.no,
+      answer: it.answer.trim(),
+      keyword: it.keyword.trim(),
+      sample: it.sample.trim(),
+      hint: it.hint.trim(),
+      script: (it.script || "").trim(),
+      explain: (it.explain || "").trim(),
+    }));
   return { title: form.title.trim(), timing: form.timing, passScore: Number(form.passScore) || 0, groups: form.groups, items };
 }
 
@@ -611,6 +619,7 @@ function AnswersCard({ form, setForm, setItem, toast }) {
               {g.type === "text" && <TextAnswers group={g} items={form.items} setItem={setItem} />}
               {g.type === "sentence" && <SentenceAnswers group={g} items={form.items} setItem={setItem} />}
             </div>
+            <ExplainEditor group={g} items={form.items} setItem={setItem} />
           </div>
         ))}
       </div>
@@ -692,6 +701,49 @@ function SentenceAnswers({ group, items, setItem }) {
       })}
       <p className="text-[11px] text-gray-400">AI không nhìn được tranh trong đề — mô tả ngắn nội dung tranh để AI xét câu có hợp tranh không.</p>
     </div>
+  );
+}
+
+/**
+ * Nội dung hội thoại / đoạn văn (kèm pinyin) + giải thích đáp án từng câu
+ * của một nhóm — học viên xem ở trang kết quả sau khi nộp. Gập sẵn cho gọn.
+ */
+function ExplainEditor({ group, items, setItem }) {
+  const nos = range(group);
+  const filled = nos.filter((no) => items[no]?.script || items[no]?.explain).length;
+  const area = field + " w-full font-normal leading-relaxed";
+  return (
+    <details className="mt-2 rounded-lg border border-gray-100 bg-gray-50/60">
+      <summary className="cursor-pointer px-3 py-2 text-xs text-gray-600">
+        Nội dung hội thoại / đoạn văn & giải thích đáp án · <b className={filled ? "text-green-700" : "text-gray-400"}>{filled}/{nos.length} câu</b>
+        <span className="text-gray-400"> — học viên xem ở trang kết quả</span>
+      </summary>
+      <div className="px-3 pb-3 space-y-3">
+        {nos.map((no) => (
+          <div key={no} className="grid gap-1.5">
+            <p className="text-xs font-semibold text-gray-700">Câu {no}</p>
+            {group.section === "listening" && (
+              <textarea
+                rows={3}
+                value={items[no]?.script || ""}
+                onChange={(e) => setItem(no, { script: e.target.value })}
+                placeholder="Nội dung hội thoại / đoạn văn (mỗi câu một dòng, có thể kèm dòng pinyin)"
+                aria-label={`Nội dung hội thoại / đoạn văn câu ${no}`}
+                className={area}
+              />
+            )}
+            <textarea
+              rows={3}
+              value={items[no]?.explain || ""}
+              onChange={(e) => setItem(no, { explain: e.target.value })}
+              placeholder={group.type === "sentence" ? "Đáp án tham khảo (kèm pinyin)" : "Giải thích đáp án: vì sao đúng, vì sao các phương án khác sai…"}
+              aria-label={`Giải thích câu ${no}`}
+              className={area}
+            />
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
 
