@@ -3,7 +3,7 @@
  */
 
 export const SECTION_LABEL = { listening: "Nghe", reading: "Đọc", writing: "Viết" };
-export const TYPE_LABEL = { choice: "Chọn đáp án", text: "Viết đáp án", sentence: "Đặt câu (AI chấm)" };
+export const TYPE_LABEL = { choice: "Chọn đáp án", text: "Viết đáp án", sentence: "Đặt câu / đoạn văn (AI chấm)" };
 
 /** Số câu -> nhóm của nó. */
 export function questionMap(groups) {
@@ -12,8 +12,20 @@ export function questionMap(groups) {
   return map;
 }
 
-/** Câu đã có đáp án chưa (đặt câu: có từ bắt buộc là đủ). */
-export const isAnswered = (g, it) => (g.type === "sentence" ? Boolean(it?.keyword?.trim()) : Boolean(it?.answer?.trim()));
+/** Nhóm câu viết đoạn văn (AI chấm cả đoạn) thay vì đặt một câu. */
+export const isEssay = (g) => g?.type === "sentence" && Number(g.minChars) > 0;
+
+/** Số chữ Hán (không tính dấu câu, pinyin, số). */
+export const hanCount = (s) => (String(s || "").match(/\p{Script=Han}/gu) || []).length;
+
+/** "Câu 1–5", nhóm một câu thì "Câu 70". */
+export const groupLabel = (g) => (g.from === g.to ? `Câu ${g.from}` : `Câu ${g.from}–${g.to}`);
+
+/** Câu đã có đáp án chưa (đặt câu: có từ bắt buộc là đủ; đoạn văn: có đề bài). */
+export const isAnswered = (g, it) => {
+  if (g.type !== "sentence") return Boolean(it?.answer?.trim());
+  return Boolean((isEssay(g) ? it?.hint : it?.keyword)?.trim());
+};
 
 /**
  * Dán nhanh đáp án. Nhận hai kiểu:
@@ -38,6 +50,7 @@ export function parseAnswerPaste(raw, groups, items) {
       if (letter.length !== 1 || !g.options.includes(letter)) return errors.push(`Câu ${no}: "${value}" không thuộc ${g.options.split("").join("/")}.`);
       cur.answer = letter;
     } else if (g.type === "text") cur.answer = value;
+    else if (isEssay(g)) return errors.push(`Câu ${no}: đoạn văn — nhập đề bài ở ô riêng.`);
     else cur.keyword = value;
     next.set(no, cur);
     applied++;
