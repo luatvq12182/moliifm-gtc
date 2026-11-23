@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import AuthImage from "../../components/materials/AuthImage.jsx";
 import { finishMyAttemptSection, myAttemptPagePath, saveMyAttemptAnswers, useMyExamAttempt, useRegradeMyAttempt } from "../../hooks/useExam.js";
 import ExamResultView from "../../components/exam/ExamResultView.jsx";
+import { groupLabel, hanCount, isEssay } from "../../lib/examAnswers.js";
 import { useBlockInspect } from "../../hooks/useBlockInspect.js";
 
 /**
@@ -479,12 +480,22 @@ function Paper({ attemptId, pages, hidden, jump }) {
   );
 }
 
+/** Đếm chữ Hán của bài viết đoạn văn. */
+function CharCount({ text, min }) {
+  const n = hanCount(text);
+  return (
+    <span className={"mt-1 block text-right text-xs " + (n >= min ? "text-green-700" : "text-gray-500")}>
+      {n} / tối thiểu {min} chữ
+    </span>
+  );
+}
+
 function AnswerGroup({ group, answers, keywords, onChange, onShowPage }) {
   const nos = Array.from({ length: group.to - group.from + 1 }, (_, i) => group.from + i);
   return (
     <div>
       <p className="text-sm font-medium text-gray-800 mb-2">
-        Câu {group.from}–{group.to}
+        {groupLabel(group)}
         {group.title && <span className="font-normal text-gray-500"> · {group.title}</span>}
         {group.page > 0 && (
           <button type="button" onClick={() => onShowPage(group.page)} className="ml-2 text-xs font-normal text-primary-dark underline">
@@ -547,13 +558,14 @@ function AnswerGroup({ group, answers, keywords, onChange, onShowPage }) {
               </span>
               <textarea
                 lang="zh"
-                rows={2}
+                rows={isEssay(group) ? 10 : 2}
                 value={answers[no] || ""}
                 onChange={(e) => onChange(no, e.target.value)}
-                maxLength={300}
+                maxLength={isEssay(group) ? 1500 : 300}
                 aria-label={`Câu ${no}`}
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
               />
+              {isEssay(group) && <CharCount text={answers[no]} min={group.minChars} />}
             </label>
           ))}
         </div>

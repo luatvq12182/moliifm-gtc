@@ -15,7 +15,7 @@ import { api } from "../../../lib/apiClient.js";
 import AuthImage from "../../../components/materials/AuthImage.jsx";
 import { useConfirm } from "../../../components/admin/ConfirmDialog.jsx";
 import { useToasts, ToastStack } from "../../../components/admin/Toast.jsx";
-import { SECTION_LABEL, TYPE_LABEL, fmtPoints, isAnswered, mmss, parseAnswerPaste, scoreSummary } from "../../../lib/examAnswers.js";
+import { SECTION_LABEL, TYPE_LABEL, fmtPoints, groupLabel, isAnswered, isEssay, mmss, parseAnswerPaste, scoreSummary } from "../../../lib/examAnswers.js";
 
 /**
  * Luyện thi HSK 3.0 — soạn một đề: bên trái xem đề PDF (ẩn trang thừa), bên
@@ -67,6 +67,7 @@ function fromServer(t) {
       title: g.title || "",
       page: g.page || 0,
       points: g.points || (g.type === "sentence" ? g.verdictPoints?.dat || 0 : 0),
+      minChars: g.minChars || 0,
       verdictPoints: { dat: g.verdictPoints?.dat || 0, gan_dat: g.verdictPoints?.gan_dat || 0, chua_dat: g.verdictPoints?.chua_dat || 0 },
     })),
     items,
@@ -611,13 +612,14 @@ function AnswersCard({ form, setForm, setItem, toast }) {
           <div key={`${g.from}-${g.to}`}>
             <p className="text-sm font-medium text-gray-800">
               <span className="text-xs font-semibold text-primary-dark mr-1">{SECTION_LABEL[g.section]}</span>
-              Câu {g.from}–{g.to}
+              {groupLabel(g)}
               {g.title && <span className="font-normal text-gray-500"> · {g.title}</span>}
             </p>
             <div className="mt-2">
               {g.type === "choice" && <ChoiceAnswers group={g} items={form.items} setItem={setItem} />}
               {g.type === "text" && <TextAnswers group={g} items={form.items} setItem={setItem} />}
-              {g.type === "sentence" && <SentenceAnswers group={g} items={form.items} setItem={setItem} />}
+              {g.type === "sentence" && !isEssay(g) && <SentenceAnswers group={g} items={form.items} setItem={setItem} />}
+              {isEssay(g) && <EssayAnswers group={g} items={form.items} setItem={setItem} />}
             </div>
             <ExplainEditor group={g} items={form.items} setItem={setItem} />
           </div>
@@ -704,6 +706,26 @@ function SentenceAnswers({ group, items, setItem }) {
   );
 }
 
+/** Viết đoạn văn: đề bài (cho AI chấm) + bài mẫu. */
+function EssayAnswers({ group, items, setItem }) {
+  return (
+    <div className="space-y-3">
+      {range(group).map((no) => {
+        const it = items[no] || {};
+        return (
+          <div key={no} className="flex gap-2">
+            <span className={noLabel(group, it) + " pt-1.5"}>{no}.</span>
+            <div className="flex-1 grid gap-1.5">
+              <input value={it.hint || ""} onChange={(e) => setItem(no, { hint: e.target.value })} maxLength={300} placeholder="Đề bài (cho AI chấm) *" aria-label={`Đề bài câu ${no}`} className={field} />
+              <textarea rows={4} value={it.sample || ""} onChange={(e) => setItem(no, { sample: e.target.value })} maxLength={1500} placeholder="Bài mẫu (hiện ở kết quả)" aria-label={`Bài mẫu câu ${no}`} className={field} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * Nội dung hội thoại / đoạn văn (kèm pinyin) + giải thích đáp án từng câu
  * của một nhóm — học viên xem ở trang kết quả sau khi nộp. Gập sẵn cho gọn.
@@ -760,7 +782,7 @@ function StructureCard({ form, setForm, published }) {
         ...f,
         groups: [
           ...f.groups,
-          { section: last?.section || "listening", type: "choice", from, to: from + 4, options: "ABC", title: "", page: 0, points: last?.points || 0, verdictPoints: { dat: 0, gan_dat: 0, chua_dat: 0 } },
+          { section: last?.section || "listening", type: "choice", from, to: from + 4, options: "ABC", title: "", page: 0, points: last?.points || 0, minChars: 0, verdictPoints: { dat: 0, gan_dat: 0, chua_dat: 0 } },
         ],
       };
     });
@@ -811,6 +833,10 @@ function StructureCard({ form, setForm, published }) {
                   Điểm tối đa/câu
                   <input type="number" min="1" step="1" value={g.points || ""} onChange={(e) => setGroup(i, { points: Number(e.target.value) })} className={small + " w-20"} aria-label="Điểm tối đa mỗi câu" />
                   <span className="text-xs text-gray-400">AI cho điểm từ 0 tới mức này · bỏ trống 0 điểm</span>
+                  <span className="basis-full h-0" />
+                  Số chữ tối thiểu
+                  <input type="number" min="0" step="10" value={g.minChars || ""} onChange={(e) => setGroup(i, { minChars: Number(e.target.value) || 0 })} placeholder="—" className={small + " w-20"} aria-label="Số chữ tối thiểu" />
+                  <span className="text-xs text-gray-400">để trống = đặt một câu · có số = viết đoạn văn</span>
                 </>
               ) : (
                 <>

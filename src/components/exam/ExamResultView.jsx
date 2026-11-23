@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { hanCount } from "../../lib/examAnswers.js";
 
 /**
  * Kết quả từng câu của một bài luyện thi (dùng chung cho học viên và trang quản
@@ -419,7 +420,7 @@ function QuestionPanel({ q, explanation, pinyin, onShowPage, position, onPrev, o
           <div className="grid sm:grid-cols-[1fr_auto] gap-2">
             <div className="rounded-lg bg-gray-50 px-3 py-2">
               <p className="text-xs text-gray-500">Bài viết của bạn</p>
-              <p className="mt-0.5 text-[16px] text-gray-900">{item.given || <span className="text-gray-400">Chưa viết</span>}</p>
+              <p className={"mt-0.5 text-[16px] text-gray-900 " + (item.essay ? "whitespace-pre-wrap leading-relaxed" : "")}>{item.given || <span className="text-gray-400">Chưa viết</span>}</p>
             </div>
             <div className={"rounded-lg px-4 py-2 text-center " + (status === "right" ? "bg-green-50" : status === "mid" ? "bg-amber-50" : status === "pending" ? "bg-gray-100" : "bg-red-50")}>
               <p className="text-xs text-gray-500">Điểm AI</p>
@@ -428,10 +429,15 @@ function QuestionPanel({ q, explanation, pinyin, onShowPage, position, onPrev, o
               </p>
             </div>
           </div>
-          {item.comment && <p className="text-sm text-gray-700">{item.comment}</p>}
+          {item.essay && item.given && (
+            <p className="text-xs text-gray-500">
+              {hanCount(item.given)} chữ · yêu cầu tối thiểu {item.minChars} chữ
+            </p>
+          )}
+          {item.comment && <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.comment}</p>}
           {item.corrected && item.corrected !== item.given && (
-            <p className="text-sm">
-              <span className="text-gray-500">Câu sửa: </span>
+            <p className={"text-sm " + (item.essay ? "whitespace-pre-wrap leading-relaxed" : "")}>
+              <span className="text-gray-500">{item.essay ? "Bài sửa: " : "Câu sửa: "}</span>
               <span className="text-green-700 font-medium">{item.corrected}</span>
             </p>
           )}
